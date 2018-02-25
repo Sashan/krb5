@@ -372,13 +372,13 @@ krb5_error_code server_process_dh
 		    contains client's DER encoded DH pub key */
 	unsigned int received_pub_len,			/* IN
 		    contains length of received_pubkey */
-	unsigned char **dh_pubkey,			/* OUT
+	unsigned char **dh_pubkey_out,			/* OUT
 		    receives KDC's DER encoded DH pub key */
-	unsigned int *dh_pubkey_len,			/* OUT
+	unsigned int *dh_pubkey_len_out,		/* OUT
 		    receives length of dh_pubkey */
-	unsigned char **server_key,			/* OUT
+	unsigned char **server_key_out,			/* OUT
 		    receives DH secret key */
-	unsigned int *server_key_len);			/* OUT
+	unsigned int *server_key_len_out);		/* OUT
 		    receives length of server_key */
 
 /*
