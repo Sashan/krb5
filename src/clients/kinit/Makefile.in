@@ -1,7 +1,12 @@
 mydir=clients$(S)kinit
 BUILDTOP=$(REL)..$(S)..
 
-SRCS=kinit.c kinit_kdb.c
+SRCS=kinit.c kinit_kdb.c \
+	kwarnd_clnt.c \
+	kwarnd_xdr.c \
+	../kwarn/kwarnd_clnt_stubs.c \
+	../kwarn/kwarnd_handle.c
+
 ##WIN32##LOCALINCLUDES=-I$(BUILDTOP)\util\windows -I$(BUILDTOP)\util\support
 
 ##WIN32##VERSIONRC = $(BUILDTOP)\windows\version.rc
@@ -14,18 +19,46 @@ SRCS=kinit.c kinit_kdb.c
 ##WIN32##$(EXERES): $(VERSIONRC)
 ##WIN32##        $(RC) $(RCFLAGS) -DKINIT_APP -fo $@ -r $**
 
+RPCGEN=@RPCGEN@
+
+kwarnd.h:	../kwarn/kwarnd.x
+	$(RM) $@
+	$(RPCGEN) -M -h ../kwarn/kwarnd.x > $@
+
+kwarnd_xdr.c:	../kwarn/kwarnd.x
+	$(RM) $@
+	$(RPCGEN) -M -c ../kwarn/kwarnd.x > $@
+
+kwarnd_clnt.c:	../kwarn/kwarnd.x
+	$(RM) $@
+	$(RPCGEN) -M -l ../kwarn/kwarnd.x > $@
+
+kwarnd_clnt_stubs.o: ../kwarn/kwarnd_clnt_stubs.c
+	$(CC) -c -o $@ ../kwarn/kwarnd_clnt_stubs.c
+
+kwarnd_handle.o: ../kwarn/kwarnd_handle.c
+	$(CC) -c -o $@ ../kwarn/kwarnd_handle.c
+
+kwarnd_xdr.o: kwarnd.h kwarnd_xdr.c
+	$(CC) -c -o $@ kwarnd_xdr.c
+
 all-unix: kinit
 ##WIN32##all-windows: $(KINIT)
 
-kinit: kinit.o kinit_kdb.o $(KRB5_BASE_DEPLIBS) $(KADMSRV_DEPLIBS)
-	$(CC_LINK) -o $@ kinit.o kinit_kdb.o $(KADMSRV_LIBS) $(KRB5_BASE_LIBS)
+kinit: kwarnd.h kwarnd_clnt_stubs.o kwarnd_handle.o kwarnd_xdr.o kwarnd_clnt.o \
+	kinit.o kinit_kdb.o $(KRB5_BASE_DEPLIBS) $(KADMSRV_DEPLIBS)
+	$(CC_LINK) -o $@ kinit.o kinit_kdb.o kwarnd_clnt.o \
+	    kwarnd_clnt_stubs.o kwarnd_handle.o kwarnd_xdr.o \
+	    $(KADMSRV_LIBS) $(KRB5_BASE_LIBS)
 
 ##WIN32##$(KINIT): $(OUTPRE)kinit.obj $(SLIB) $(KLIB) $(CLIB) $(EXERES)
 ##WIN32##	link $(EXE_LINKOPTS) -out:$@ $** advapi32.lib
 ##WIN32##	$(_VC_MANIFEST_EMBED_EXE)
 
 clean-unix::
-	$(RM) kinit.o kinit_kdb.o kinit
+	$(RM) kinit.o kinit_kdb.o kinit kwarnd_xdr.o kwarnd_handle.o \
+	    kwarnd_clnt_stubs.o kwarnd_xdr.c kwarnd.h kwarnd_clnt.o \
+	    kwarnd_clnt.c
 
 install-unix:
 	for f in kinit; do \

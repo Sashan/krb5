@@ -78,6 +78,9 @@ get_name_from_os()
 
 static char *progname;
 
+static void _kwarnd_add_warning(char *, char *, time_t);
+static void _kwarnd_del_warning(char *, char *);
+
 typedef enum { INIT_PW, INIT_KT, RENEW, VALIDATE } action_type;
 
 struct k_opts
@@ -835,6 +838,15 @@ k5_kinit(struct k_opts *opts, struct k5_data *k5)
         if (opts->verbose)
             fprintf(stderr, _("Stored credentials\n"));
     }
+
+    /* Solaris Kerberos: support our ktkt_warnd */
+    if (opts->action == RENEW) {
+        _kwarnd_del_warning(progname, opts->principal_name);
+        _kwarnd_add_warning(progname, opts->principal_name, my_creds.times.endtime);
+    } else if ((opts->action == INIT_KT) || (opts->action == INIT_PW)) {
+        _kwarnd_add_warning(progname, opts->principal_name, my_creds.times.endtime);
+    }
+
     notix = 0;
     if (k5->switch_to_cache) {
         ret = krb5_cc_switch(k5->ctx, k5->out_cc);
@@ -902,3 +914,25 @@ main(int argc, char *argv[])
         exit(1);
     return 0;
 }
+
+/* Solaris Kerberos start */
+
+static void
+_kwarnd_add_warning(char *p, char *me, time_t endtime)
+{
+    if (kwarn_add_warning(me, endtime) != 0)
+        fprintf(stderr, gettext(
+            "%s:  no ktkt_warnd warning possible\n"), p);
+    return;
+}
+
+static void
+_kwarnd_del_warning(char *p, char *me)
+{
+    if (kwarn_del_warning(me) != 0)
+        fprintf(stderr, gettext(
+            "%s:  unable to delete ktkt_warnd message for %s\n"),
+            p, me);
+    return;
+}
+/* Solaris Kerberos end */

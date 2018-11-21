@@ -24,6 +24,11 @@
  * or implied warranty.
  */
 
+/* Solaris Kerberos */
+#include <rpc/types.h>
+#include <rpc/rpcsys.h>
+#include <rpc/rpcsec_gss.h>
+
 #include "k5-platform.h"
 #include <krb5.h>
 #include <com_err.h>
@@ -39,6 +44,13 @@
 
 extern int optind;
 extern char *optarg;
+
+/*
+ * We add _rpcsys extern declariation because that ON build suppresses warning
+ * of implicit declarition, while MIT kerberos build treats the warning
+ * as an error.
+ */
+extern int _rpcsys(int, void *);
 
 #ifndef _WIN32
 #define GET_PROGNAME(x) (strrchr((x), '/') ? strrchr((x), '/') + 1 : (x))
@@ -92,6 +104,13 @@ main(int argc, char *argv[])
     krb5_cccol_cursor cursor;
     char *cache_name = NULL;
     int code = 0, errflg = 0, quiet = 0, all = 0, c;
+
+    /* Solaris Kerberos */
+    krb5_principal me = NULL;
+    char *client_name = NULL;
+    struct krpc_revauth desarg;
+    static  rpc_gss_OID_desc oid = {9, "\052\206\110\206\367\022\001\002\002"};
+    static  rpc_gss_OID krb5_mech_type = &oid;
 
     setlocale(LC_ALL, "");
     progname = GET_PROGNAME(argv[0]);
@@ -170,11 +189,40 @@ main(int argc, char *argv[])
         return 0;
     }
 
+    /*
+     *  Solaris Kerberos
+     *  Let us destroy the kernel cache first.
+     */
+    desarg.version = 1;
+    desarg.uid_1 = geteuid();
+    desarg.rpcsec_flavor_1 = RPCSEC_GSS;
+    desarg.flavor_data_1 = (void *) krb5_mech_type;
+    code = _rpcsys(KRPC_REVAUTH, (void *)&desarg);
+    if (code != 0) {
+        fprintf(stderr, _("%s: kernel creds cache error %d \n"),
+            progname, code);
+    }
+
     code = krb5_cc_default(context, &cache);
     if (code) {
         com_err(progname, code, _("while resolving ccache"));
         exit(1);
     }
+
+    /*
+     * Solaris Kerberos
+     * Get client name for ktkt_warnd(1M) msg.
+     */
+    code = krb5_cc_get_principal(context, cache, &me);
+    if (code != 0)
+        fprintf(stderr,
+            _("%s: Could not obtain principal name from cache\n"),
+                progname);
+    else
+         if ((code = krb5_unparse_name(context, me, &client_name)))
+             fprintf(stderr,
+                 _("%s: Could not unparse principal name found in cache\n"),
+                     progname);
 
     code = krb5_cc_destroy(context, cache);
     if (code != 0) {
@@ -190,10 +238,20 @@ main(int argc, char *argv[])
         }
     }
 
-    if (!quiet && !errflg)
-        print_remaining_cc_warning(context);
+    if (!errflg) {
+        if (!quiet)
+            print_remaining_cc_warning(context);
+        /* Solaris Kerberos - Delete ktkt_warnd(1M) entry. */
+        if (client_name)
+            kwarn_del_warning(client_name);
+        else
+            fprintf(stderr, _("%s: TGT expire warning NOT deleted\n"),
+                progname);
+    }
 
+    /* Solaris Kerberos */
+    krb5_free_unparsed_name(context, client_name);
+    krb5_free_principal(context, me);
     krb5_free_context(context);
-
     return errflg;
 }

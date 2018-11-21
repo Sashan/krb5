@@ -1,7 +1,15 @@
 #
 # Generated makefile dependencies follow.
 #
-$(OUTPRE)kdestroy.$(OBJEXT): $(BUILDTOP)/include/autoconf.h \
-  $(BUILDTOP)/include/krb5/krb5.h $(COM_ERR_DEPS) $(top_srcdir)/include/k5-platform.h \
-  $(top_srcdir)/include/k5-thread.h $(top_srcdir)/include/krb5.h \
-  kdestroy.c
+$(OUTPRE)kdestroy.$(OBJEXT): $(BUILDTOP)/include/gssapi/gssapi.h \
+  $(BUILDTOP)/include/krb5/krb5.h $(COM_ERR_DEPS) $(top_srcdir)/include/autoconf.h \
+  $(top_srcdir)/include/k5-platform.h $(top_srcdir)/include/k5-thread.h \
+  $(top_srcdir)/include/krb5.h kdestroy.c
+$(OUTPRE)kwarnd_clnt.$(OBJEXT): $(BUILDTOP)/include/gssapi/gssapi.h \
+  $(srcdir)/../kwarn/kwarnd.h kwarnd_clnt.c
+$(OUTPRE)kwarnd_xdr.$(OBJEXT): $(BUILDTOP)/include/gssapi/gssapi.h \
+  $(srcdir)/../kwarn/kwarnd.h kwarnd_xdr.c
+$(OUTPRE)kwarnd_clnt_stubs.$(OBJEXT): $(BUILDTOP)/include/gssapi/gssapi.h \
+  $(srcdir)/../kwarn/kwarnd.h $(srcdir)/../kwarn/kwarnd_clnt_stubs.c
+$(OUTPRE)kwarnd_handle.$(OBJEXT): $(BUILDTOP)/include/gssapi/gssapi.h \
+  $(srcdir)/../kwarn/kwarnd.h $(srcdir)/../kwarn/kwarnd_handle.c
