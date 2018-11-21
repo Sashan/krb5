@@ -56,7 +56,10 @@ getdir(void)
 #else
         if (!(dir = getenv("TMPDIR"))) {
 #ifdef RCTMPDIR
-            dir = RCTMPDIR;
+	    if (geteuid() == 0)
+		dir = RCTMPDIR "/root";
+	    else
+		dir = RCTMPDIR;
 #else
             dir = "/tmp";
 #endif
@@ -164,6 +167,8 @@ krb5_rc_io_creat(krb5_context context, krb5_rc_iostuff *d, char **fn)
 
     GETDIR;
     if (fn && *fn) {
+	if (strncmp(*fn, PATH_SEPARATOR, sizeof(PATH_SEPARATOR) - 1) == 0)
+	    dir = "";
         if (asprintf(&d->fn, "%s%s%s", dir, PATH_SEPARATOR, *fn) < 0)
             return KRB5_RC_IO_MALLOC;
         d->fd = -1;
@@ -227,6 +232,8 @@ krb5_rc_io_open_internal(krb5_context context, krb5_rc_iostuff *d, char *fn,
     char *dir;
 
     dir = getdir();
+    if (fn && (strncmp(fn, PATH_SEPARATOR, sizeof(PATH_SEPARATOR) - 1) == 0))
+	dir = "";
     if (full_pathname) {
         if (!(d->fn = strdup(full_pathname)))
             return KRB5_RC_IO_MALLOC;

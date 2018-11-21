@@ -13,19 +13,35 @@
 #include "rc_base.h"
 #include "rc-int.h"
 #include "k5-thread.h"
+#include "rc_mem.h"
 
 struct krb5_rc_typelist {
     const krb5_rc_ops *ops;
     struct krb5_rc_typelist *next;
 };
 static struct krb5_rc_typelist none = { &krb5_rc_none_ops, 0 };
-static struct krb5_rc_typelist krb5_rc_typelist_dfl = { &krb5_rc_dfl_ops, &none };
+static struct krb5_rc_typelist mem = { &krb5_rc_mem_ops, &none };
+static struct krb5_rc_typelist
+    krb5_rc_typelist_dfl = { &krb5_rc_dfl_ops, &mem };
 static struct krb5_rc_typelist *typehead = &krb5_rc_typelist_dfl;
 static k5_mutex_t rc_typelist_lock = K5_MUTEX_PARTIAL_INITIALIZER;
+
+struct authlist
+{
+    krb5_donot_replay rep;
+    struct authlist *na;
+    struct authlist *nh;
+};
 
 int
 krb5int_rc_finish_init(void)
 {
+    int retval;
+
+    retval = k5_mutex_finish_init(&grcache.lock);
+    if (retval)
+	return (retval);
+
     return k5_mutex_finish_init(&rc_typelist_lock);
 }
 
@@ -33,6 +49,28 @@ void
 krb5int_rc_terminate(void)
 {
     struct krb5_rc_typelist *t, *t_next;
+    struct mem_data *tgr = (struct mem_data *)grcache.data;
+    struct authlist *q, *qt;
+    int i;
+
+    k5_mutex_destroy(&grcache.lock);
+
+    if (tgr != NULL) {
+	if (tgr->name)
+	    free(tgr->name);
+	for (i = 0; i < tgr->hsize; i++) {
+	    for (q = tgr->h[i]; q; q = qt) {
+		qt = q->nh;
+		free(q->rep.server);
+		free(q->rep.client);
+		free(q);
+	    }
+	    if (tgr->h)
+		free(tgr->h);
+	    free(tgr);
+	}
+    }
+
     k5_mutex_destroy(&rc_typelist_lock);
     for (t = typehead; t != &krb5_rc_typelist_dfl; t = t_next) {
         t_next = t->next;
@@ -106,21 +144,38 @@ char * krb5_rc_get_type(krb5_context context, krb5_rcache id)
 char *
 krb5_rc_default_type(krb5_context context)
 {
-    char *s;
+    char *s, *residual;
+    unsigned int diff;
+
     if ((s = getenv("KRB5RCACHETYPE")))
         return s;
-    else
-        return "dfl";
+    else if ((s = getenv("KRB5RCNAME")) && (residual = strchr(s, ':'))) {
+	diff = (residual - s) + 1;
+	if (strncmp(s, "FILE:", diff) == 0)
+	    return "dfl";
+	else if (strncmp(s, "NONE:", diff) == 0)
+	    return "none";
+	else if (strncmp(s, "MEMORY:", diff) == 0)
+	    return "MEMORY";
+    }
+
+    return "dfl";
 }
 
 char *
 krb5_rc_default_name(krb5_context context)
 {
-    char *s;
+    char *s, *residual;
+
     if ((s = getenv("KRB5RCACHENAME")))
         return s;
-    else
-        return (char *) 0;
+    else if ((s = getenv("KRB5RCNAME"))) {
+	if (residual = strchr(s, ':'))
+	    return (residual + 1);
+	else
+	    return s;
+    } else
+	return (char *) 0;
 }
 
 krb5_error_code
