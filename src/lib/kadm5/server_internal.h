@@ -264,4 +264,8 @@ k5_kadm5_hook_rename (krb5_context context,
 
 /** @}*/
 
+/* Solaris Kerberos: symbols available in libkadm5srv_mit */
+extern void xdralloc_create(XDR *xdrs, enum xdr_op op);
+extern caddr_t xdralloc_getdata(XDR *xdrs);
+
 #endif /* __KADM5_SERVER_INTERNAL_H__ */

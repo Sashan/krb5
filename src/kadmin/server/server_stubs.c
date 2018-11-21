@@ -14,6 +14,8 @@
 #include <kadm5/server_internal.h>
 #include <syslog.h>
 #include <adm_proto.h>  /* krb5_klog_syslog */
+#include <rpc/rpcsec_gss.h>
+#include <rpc/svc_mt.h>
 #include "misc.h"
 #include "auth.h"
 
@@ -21,19 +23,24 @@ extern gss_name_t                       gss_changepw_name;
 extern gss_name_t                       gss_oldchangepw_name;
 extern void *                           global_server_handle;
 
-#define CHANGEPW_SERVICE(rqstp)                                         \
-    (cmp_gss_names_rel_1(acceptor_name(rqstp->rq_svccred), gss_changepw_name) | \
-     (gss_oldchangepw_name &&                                           \
-      cmp_gss_names_rel_1(acceptor_name(rqstp->rq_svccred),             \
+#define CHANGEPW_SERVICE(rqstp)                                     \
+    (cmp_gss_names_rel_1(acceptor_name(rqstp), gss_changepw_name) | \
+     (gss_oldchangepw_name &&                                       \
+      cmp_gss_names_rel_1(acceptor_name(rqstp),                     \
                           gss_oldchangepw_name)))
 
+/*
+ * Non-public function from rpc/libc found on Solaris. We (mis)use it to fetch
+ * gss_ctx_id_t established earlier. See ticket_is_initial() for more details.
+ */
+extern SVCAUTH *__svc_get_svcauth(SVCXPRT *);
 
 static int gss_to_krb5_name(kadm5_server_handle_t handle,
                             gss_name_t gss_name, krb5_principal *princ);
 
 static int gss_name_to_string(gss_name_t gss_name, gss_buffer_desc *str);
 
-static gss_name_t acceptor_name(gss_ctx_id_t context);
+static gss_name_t acceptor_name(struct svc_req *rqstp);
 
 gss_name_t rqst2name(struct svc_req *rqstp);
 
@@ -107,6 +114,8 @@ static kadm5_ret_t new_server_handle(krb5_ui_4 api_version,
                                      *out_handle)
 {
     kadm5_server_handle_t handle;
+    gss_name_t name = NULL;
+    OM_uint32 min_stat;
 
     *out_handle = NULL;
 
@@ -117,13 +126,18 @@ static kadm5_ret_t new_server_handle(krb5_ui_4 api_version,
     *handle = *(kadm5_server_handle_t)global_server_handle;
     handle->api_version = api_version;
 
-    if (! gss_to_krb5_name(handle, rqst2name(rqstp),
-                           &handle->current_caller)) {
+    if (!(name = rqst2name(rqstp))) {
         free(handle);
+        return KADM5_FAILURE;
+    }
+    if (! gss_to_krb5_name(handle, name, &handle->current_caller)) {
+        free(handle);
+        gss_release_name(&min_stat, &name);
         return KADM5_FAILURE;
     }
 
     *out_handle = handle;
+    gss_release_name(&min_stat, &name);
     return 0;
 }
 
@@ -182,38 +196,54 @@ int setup_gss_names(struct svc_req *rqstp,
                     gss_buffer_desc *client_name,
                     gss_buffer_desc *server_name)
 {
-    OM_uint32 maj_stat, min_stat;
-    gss_name_t server_gss_name;
+    OM_uint32 min_stat;
+    gss_name_t name = NULL;
+    rpc_gss_rawcred_t *raw_cred;
 
-    if (gss_name_to_string(rqst2name(rqstp), client_name) != 0)
-        return -1;
-    maj_stat = gss_inquire_context(&min_stat, rqstp->rq_svccred, NULL,
-                                   &server_gss_name, NULL, NULL, NULL,
-                                   NULL, NULL);
-    if (maj_stat != GSS_S_COMPLETE) {
-        gss_release_buffer(&min_stat, client_name);
-        gss_release_name(&min_stat, &server_gss_name);
+    if (!(name = rqst2name(rqstp))) {
         return -1;
     }
-    if (gss_name_to_string(server_gss_name, server_name) != 0) {
-        gss_release_buffer(&min_stat, client_name);
-        gss_release_name(&min_stat, &server_gss_name);
+    if (gss_name_to_string(name, client_name) != 0) {
+        gss_release_name(&min_stat, &name);
         return -1;
     }
-    gss_release_name(&min_stat, &server_gss_name);
+    gss_release_name(&min_stat, &name);
+
+    rpc_gss_getcred(rqstp, &raw_cred, NULL, NULL);
+    server_name->value = strdup(raw_cred->svc_principal);
+    if (server_name->value == NULL) {
+        gss_release_buffer(&min_stat, client_name);
+        return -1;
+    }
+    server_name->length = strlen(raw_cred->svc_principal);
+
     return 0;
 }
 
-static gss_name_t acceptor_name(gss_ctx_id_t context)
+static gss_name_t acceptor_name(struct svc_req *rqstp)
 {
     OM_uint32 maj_stat, min_stat;
-    gss_name_t name;
+    gss_name_t name = NULL;
+    rpc_gss_rawcred_t *raw_cred;
+    gss_buffer_desc name_buff;
 
-    maj_stat = gss_inquire_context(&min_stat, context, NULL, &name,
-                                   NULL, NULL, NULL, NULL, NULL);
-    if (maj_stat != GSS_S_COMPLETE)
-        return NULL;
-    return name;
+    rpc_gss_getcred(rqstp, &raw_cred, NULL, NULL);
+    name_buff.value = raw_cred->svc_principal;
+    name_buff.length = strlen(raw_cred->svc_principal);
+    maj_stat = gss_import_name(&min_stat, &name_buff,
+        (gss_OID) gss_nt_krb5_name, &name);
+    if (maj_stat != GSS_S_COMPLETE) {
+        gss_release_buffer(&min_stat, &name_buff);
+        return (NULL);
+    }
+    maj_stat = gss_display_name(&min_stat, name, &name_buff, NULL);
+    if (maj_stat != GSS_S_COMPLETE) {
+        gss_release_buffer(&min_stat, &name_buff);
+      return (NULL);
+    }
+    gss_release_buffer(&min_stat, &name_buff);
+
+     return name;
 }
 
 static int gss_to_krb5_name(kadm5_server_handle_t handle,
@@ -267,7 +297,7 @@ static kadm5_ret_t
 stub_setup(krb5_ui_4 api_version, struct svc_req *rqstp, krb5_principal princ,
            kadm5_server_handle_t *handle_out, krb5_ui_4 *api_version_out,
            gss_buffer_t client_name_out, gss_buffer_t service_name_out,
-           char **princ_str_out)
+           char **princ_str_out, gss_name_t *name_out)
 {
     kadm5_ret_t ret;
 
@@ -290,6 +320,11 @@ stub_setup(krb5_ui_4 api_version, struct svc_req *rqstp, krb5_principal princ,
         if (krb5_unparse_name((*handle_out)->context, princ, princ_str_out))
             return KADM5_BAD_PRINCIPAL;
     }
+    if (name_out !=  NULL) { 
+        *name_out = rqst2name(rqstp);
+        if (*name_out == NULL)	
+		return KADM5_FAILURE;
+    }
 
     return KADM5_OK;
 }
@@ -297,7 +332,8 @@ stub_setup(krb5_ui_4 api_version, struct svc_req *rqstp, krb5_principal princ,
 /* Perform common cleanup for server stub functions. */
 static void
 stub_cleanup(kadm5_server_handle_t handle, char *princ_str,
-             gss_buffer_t client_name, gss_buffer_t service_name)
+             gss_buffer_t client_name, gss_buffer_t service_name,
+	     gss_name_t name)
 {
     OM_uint32 minor_stat;
 
@@ -306,6 +342,8 @@ stub_cleanup(kadm5_server_handle_t handle, char *princ_str,
     free(princ_str);
     gss_release_buffer(&minor_stat, client_name);
     gss_release_buffer(&minor_stat, service_name);
+    if (name)
+        gss_release_name(&minor_stat, &name);
 }
 
 static krb5_boolean
@@ -343,15 +381,64 @@ changepw_not_self(kadm5_server_handle_t handle, struct svc_req *rqstp,
                                 princ);
 }
 
+/*
+ * There is a small difference between Solaris and upstream MIT kerberos here.
+ * The devil hides in definition of svc_req structure, which looks on Solaris
+ * as follows:
+ * 	struct svc_req {
+ *		rpcprog_t	rq_prog;
+ *		rpcvers_t	rq_vers;
+ *		rpcproc_t	rq_proc;
+ *		struct opaque_auth rq_cred;
+ *		caddr_t		rq_clntcred;
+ *		SVCXPRT		*rq_xprt;
+ *		bslabel_t	*rq_label;
+ * 	};
+ *
+ * The same structure defined by native kerberos RPC:
+ *	struct svc_req {
+ *		rpcprog_t		rq_prog;
+ *		rpcvers_t		rq_vers;
+ *		rpcproc_t		rq_proc;
+ *		struct opaque_auth rq_cred;
+ *		void *		rq_clntcred;
+ *		void *		rq_svccred;
+ *		void *		rq_clntname;
+ *		SVCXPRT		*rq_xprt;
+ *		...
+ *	};
+ *
+ * They are almost same. The deal breaker here is rq_svccred member found in
+ * upstream. Upstream uses rq_svccred to convey GSS context id between parties.
+ *
+ * On Solaris the GSS context ID hides beneath RPC API surface in GSS params
+ * attached to SVCAUTH (Authenticator). In order to reach it we deliberately
+ * ask non public __svc_get_svcauth() to do it for us.
+ */
 static krb5_boolean
 ticket_is_initial(struct svc_req *rqstp)
 {
     OM_uint32 status, minor_stat;
-    krb5_flags flags;
+    krb5_flags flags = 0;
+    rpc_gss_rawcred_t *gss_rcred;
+    rpc_gss_error_t gss_error;
+    gss_ctx_id_t context_handle;
+    SVCAUTH *auth;
 
-    status = gss_krb5_get_tkt_flags(&minor_stat, rqstp->rq_svccred, &flags);
+    if (!rpc_gss_getcred(rqstp, &gss_rcred, NULL, NULL)) {
+	rpc_gss_get_error(&gss_error);
+	return 0;
+    }
+
+    auth = __svc_get_svcauth(rqstp->rq_xprt);
+    if (auth == NULL)
+	return 0;
+
+    context_handle = auth->svc_gss_parms.context;
+    status = gss_krb5_get_tkt_flags(&minor_stat, context_handle, &flags);
     if (status != GSS_S_COMPLETE)
-        return 0;
+	    return 0;
+
     return (flags & TKT_FLG_INITIAL) != 0;
 }
 
@@ -439,10 +526,11 @@ create_principal_2_svc(cprinc_arg *arg, generic_ret *ret,
     gss_buffer_desc             service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t       handle;
     const char                  *errmsg = NULL;
+    gss_name_t                  name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->rec.principal,
                            &handle, &ret->api_version, &client_name,
-                           &service_name, &prime_arg);
+                           &service_name, &prime_arg, &name);
     if (ret->code)
         goto exit_func;
 
@@ -466,7 +554,7 @@ create_principal_2_svc(cprinc_arg *arg, generic_ret *ret,
     }
 
 exit_func:
-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+    stub_cleanup(handle, prime_arg, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -479,10 +567,11 @@ create_principal3_2_svc(cprinc3_arg *arg, generic_ret *ret,
     gss_buffer_desc             service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t       handle;
     const char                  *errmsg = NULL;
+    gss_name_t                  name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->rec.principal,
                            &handle, &ret->api_version, &client_name,
-                           &service_name, &prime_arg);
+                           &service_name, &prime_arg, &name);
     if (ret->code)
         goto exit_func;
 
@@ -506,7 +595,7 @@ create_principal3_2_svc(cprinc3_arg *arg, generic_ret *ret,
     }
 
 exit_func:
-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+    stub_cleanup(handle, prime_arg, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -534,10 +623,11 @@ delete_principal_2_svc(dprinc_arg *arg, generic_ret *ret,
     gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t           handle;
     const char                      *errmsg = NULL;
+    gss_name_t                      name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->princ, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           &prime_arg);
+                           &prime_arg, &name);
     if (ret->code)
         goto exit_func;
 
@@ -570,7 +660,7 @@ delete_principal_2_svc(dprinc_arg *arg, generic_ret *ret,
     }
 
 exit_func:
-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+    stub_cleanup(handle, prime_arg, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -583,10 +673,11 @@ modify_principal_2_svc(mprinc_arg *arg, generic_ret *ret,
     gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t           handle;
     const char                      *errmsg = NULL;
+    gss_name_t                      name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->rec.principal,
                            &handle, &ret->api_version, &client_name,
-                           &service_name, &prime_arg);
+                           &service_name, &prime_arg, &name);
     if (ret->code)
         goto exit_func;
 
@@ -618,7 +709,7 @@ modify_principal_2_svc(mprinc_arg *arg, generic_ret *ret,
     }
 
 exit_func:
-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+    stub_cleanup(handle, prime_arg, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -633,10 +724,11 @@ rename_principal_2_svc(rprinc_arg *arg, generic_ret *ret,
     const char                  *errmsg = NULL;
     size_t                      tlen1, tlen2, clen, slen;
     char                        *tdots1, *tdots2, *cdots, *sdots;
+    gss_name_t                  name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, NULL, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           NULL);
+                           NULL, &name);
     if (ret->code)
         goto exit_func;
 
@@ -702,7 +794,7 @@ rename_principal_2_svc(rprinc_arg *arg, generic_ret *ret,
 exit_func:
     free(prime_arg1);
     free(prime_arg2);
-    stub_cleanup(handle, NULL, &client_name, &service_name);
+    stub_cleanup(handle, NULL, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -714,10 +806,11 @@ get_principal_2_svc(gprinc_arg *arg, gprinc_ret *ret, struct svc_req *rqstp)
     gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t           handle;
     const char                      *errmsg = NULL;
+    gss_name_t                      name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->princ, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           &prime_arg);
+                           &prime_arg, &name);
     if (ret->code)
         goto exit_func;
 
@@ -743,7 +836,7 @@ get_principal_2_svc(gprinc_arg *arg, gprinc_ret *ret, struct svc_req *rqstp)
     }
 
 exit_func:
-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+    stub_cleanup(handle, prime_arg, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -755,10 +848,11 @@ get_princs_2_svc(gprincs_arg *arg, gprincs_ret *ret, struct svc_req *rqstp)
     gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t           handle;
     const char                      *errmsg = NULL;
+    gss_name_t                      name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, NULL, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           NULL);
+                           NULL, &name);
     if (ret->code)
         goto exit_func;
 
@@ -786,7 +880,7 @@ get_princs_2_svc(gprincs_arg *arg, gprincs_ret *ret, struct svc_req *rqstp)
     }
 
 exit_func:
-    stub_cleanup(handle, NULL, &client_name, &service_name);
+    stub_cleanup(handle, NULL, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -799,10 +893,11 @@ chpass_principal_2_svc(chpass_arg *arg, generic_ret *ret,
     gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t           handle;
     const char                      *errmsg = NULL;
+    gss_name_t                      name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->princ, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           &prime_arg);
+                           &prime_arg, &name);
     if (ret->code)
         goto exit_func;
 
@@ -836,7 +931,7 @@ chpass_principal_2_svc(chpass_arg *arg, generic_ret *ret,
     }
 
 exit_func:
-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+    stub_cleanup(handle, prime_arg, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -849,10 +944,11 @@ chpass_principal3_2_svc(chpass3_arg *arg, generic_ret *ret,
     gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t           handle;
     const char                      *errmsg = NULL;
+    gss_name_t                      name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->princ, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           &prime_arg);
+                           &prime_arg, &name);
     if (ret->code)
         goto exit_func;
 
@@ -889,7 +985,7 @@ chpass_principal3_2_svc(chpass3_arg *arg, generic_ret *ret,
     }
 
 exit_func:
-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+    stub_cleanup(handle, prime_arg, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -902,10 +998,11 @@ setv4key_principal_2_svc(setv4key_arg *arg, generic_ret *ret,
     gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t           handle;
     const char                      *errmsg = NULL;
+    gss_name_t                      name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->princ, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           &prime_arg);
+                           &prime_arg, &name);
     if (ret->code)
         goto exit_func;
 
@@ -938,7 +1035,7 @@ setv4key_principal_2_svc(setv4key_arg *arg, generic_ret *ret,
     }
 
 exit_func:
-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+    stub_cleanup(handle, prime_arg, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -952,10 +1049,11 @@ setkey_principal_2_svc(setkey_arg *arg, generic_ret *ret,
     gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t           handle;
     const char                      *errmsg = NULL;
+    gss_name_t                      name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->princ, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           &prime_arg);
+                           &prime_arg, &name);
     if (ret->code)
         goto exit_func;
 
@@ -988,7 +1086,7 @@ setkey_principal_2_svc(setkey_arg *arg, generic_ret *ret,
     }
 
 exit_func:
-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+    stub_cleanup(handle, prime_arg, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -1001,10 +1099,11 @@ setkey_principal3_2_svc(setkey3_arg *arg, generic_ret *ret,
     gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t           handle;
     const char                      *errmsg = NULL;
+    gss_name_t                      name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->princ, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           &prime_arg);
+                           &prime_arg, &name);
     if (ret->code)
         goto exit_func;
 
@@ -1038,7 +1137,7 @@ setkey_principal3_2_svc(setkey3_arg *arg, generic_ret *ret,
     }
 
 exit_func:
-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+    stub_cleanup(handle, prime_arg, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -1051,10 +1150,11 @@ setkey_principal4_2_svc(setkey4_arg *arg, generic_ret *ret,
     gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t           handle;
     const char                      *errmsg = NULL;
+    gss_name_t                      name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->princ, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           &prime_arg);
+                           &prime_arg, &name);
     if (ret->code)
         goto exit_func;
 
@@ -1087,7 +1187,7 @@ setkey_principal4_2_svc(setkey4_arg *arg, generic_ret *ret,
     }
 
 exit_func:
-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+    stub_cleanup(handle, prime_arg, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -1122,10 +1222,11 @@ chrand_principal_2_svc(chrand_arg *arg, chrand_ret *ret, struct svc_req *rqstp)
     int                         nkeys;
     kadm5_server_handle_t       handle;
     const char                  *errmsg = NULL;
+    gss_name_t                  name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->princ, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           &prime_arg);
+                           &prime_arg, &name);
     if (ret->code)
         goto exit_func;
 
@@ -1164,7 +1265,7 @@ chrand_principal_2_svc(chrand_arg *arg, chrand_ret *ret, struct svc_req *rqstp)
     }
 
 exit_func:
-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+    stub_cleanup(handle, prime_arg, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -1179,10 +1280,11 @@ chrand_principal3_2_svc(chrand3_arg *arg, chrand_ret *ret,
     int                         nkeys;
     kadm5_server_handle_t       handle;
     const char                  *errmsg = NULL;
+    gss_name_t                  name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->princ, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           &prime_arg);
+                           &prime_arg, &name);
     if (ret->code)
         goto exit_func;
 
@@ -1223,7 +1325,7 @@ chrand_principal3_2_svc(chrand3_arg *arg, chrand_ret *ret,
     }
 
 exit_func:
-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+    stub_cleanup(handle, prime_arg, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -1235,10 +1337,11 @@ create_policy_2_svc(cpol_arg *arg, generic_ret *ret, struct svc_req *rqstp)
     gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t           handle;
     const char                      *errmsg = NULL;
+    gss_name_t                      name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, NULL, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           NULL);
+                           NULL, &name);
     if (ret->code)
         goto exit_func;
 
@@ -1265,7 +1368,7 @@ create_policy_2_svc(cpol_arg *arg, generic_ret *ret, struct svc_req *rqstp)
     }
 
 exit_func:
-    stub_cleanup(handle, NULL, &client_name, &service_name);
+    stub_cleanup(handle, NULL, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -1277,10 +1380,11 @@ delete_policy_2_svc(dpol_arg *arg, generic_ret *ret, struct svc_req *rqstp)
     gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t           handle;
     const char                      *errmsg = NULL;
+    gss_name_t                      name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, NULL, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           NULL);
+                           NULL, &name);
     if (ret->code)
         goto exit_func;
 
@@ -1305,7 +1409,7 @@ delete_policy_2_svc(dpol_arg *arg, generic_ret *ret, struct svc_req *rqstp)
     }
 
 exit_func:
-    stub_cleanup(handle, NULL, &client_name, &service_name);
+    stub_cleanup(handle, NULL, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -1317,10 +1421,11 @@ modify_policy_2_svc(mpol_arg *arg, generic_ret *ret, struct svc_req *rqstp)
     gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t           handle;
     const char                      *errmsg = NULL;
+    gss_name_t                      name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, NULL, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           NULL);
+                           NULL, &name);
     if (ret->code)
         goto exit_func;
 
@@ -1346,7 +1451,7 @@ modify_policy_2_svc(mpol_arg *arg, generic_ret *ret, struct svc_req *rqstp)
     }
 
 exit_func:
-    stub_cleanup(handle, NULL, &client_name, &service_name);
+    stub_cleanup(handle, NULL, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -1360,12 +1465,13 @@ get_policy_2_svc(gpol_arg *arg, gpol_ret *ret, struct svc_req *rqstp)
     kadm5_principal_ent_rec     caller_ent;
     kadm5_server_handle_t       handle;
     const char                  *errmsg = NULL, *cpolicy = NULL;
+    gss_name_t                  name = NULL;
 
     memset(&caller_ent, 0, sizeof(caller_ent));
 
     ret->code = stub_setup(arg->api_version, rqstp, NULL, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           NULL);
+                           NULL, &name);
     if (ret->code)
         goto exit_func;
 
@@ -1399,7 +1505,7 @@ get_policy_2_svc(gpol_arg *arg, gpol_ret *ret, struct svc_req *rqstp)
 
 exit_func:
     (void)kadm5_free_principal_ent(handle->lhandle, &caller_ent);
-    stub_cleanup(handle, NULL, &client_name, &service_name);
+    stub_cleanup(handle, NULL, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -1411,10 +1517,11 @@ get_pols_2_svc(gpols_arg *arg, gpols_ret *ret, struct svc_req *rqstp)
     gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t           handle;
     const char                      *errmsg = NULL;
+    gss_name_t                      name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, NULL, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           NULL);
+                           NULL, &name);
     if (ret->code)
         goto exit_func;
 
@@ -1441,7 +1548,7 @@ get_pols_2_svc(gpols_arg *arg, gpols_ret *ret, struct svc_req *rqstp)
     }
 
 exit_func:
-    stub_cleanup(handle, NULL, &client_name, &service_name);
+    stub_cleanup(handle, NULL, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -1454,7 +1561,7 @@ get_privs_2_svc(krb5_ui_4 *arg, getprivs_ret *ret, struct svc_req *rqstp)
     const char                     *errmsg = NULL;
 
     ret->code = stub_setup(*arg, rqstp, NULL, &handle, &ret->api_version,
-                           &client_name, &service_name, NULL);
+                           &client_name, &service_name, NULL, NULL);
     if (ret->code)
         goto exit_func;
 
@@ -1469,7 +1576,7 @@ get_privs_2_svc(krb5_ui_4 *arg, getprivs_ret *ret, struct svc_req *rqstp)
         krb5_free_error_message(handle->context, errmsg);
 
 exit_func:
-    stub_cleanup(handle, NULL, &client_name, &service_name);
+    stub_cleanup(handle, NULL, &client_name, &service_name, NULL);
     return TRUE;
 }
 
@@ -1482,10 +1589,11 @@ purgekeys_2_svc(purgekeys_arg *arg, generic_ret *ret, struct svc_req *rqstp)
     kadm5_server_handle_t       handle;
 
     const char                  *errmsg = NULL;
+    gss_name_t                  name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->princ, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           &prime_arg);
+                           &prime_arg, &name);
     if (ret->code)
         goto exit_func;
 
@@ -1508,7 +1616,7 @@ purgekeys_2_svc(purgekeys_arg *arg, generic_ret *ret, struct svc_req *rqstp)
     }
 
 exit_func:
-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+    stub_cleanup(handle, prime_arg, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -1520,10 +1628,11 @@ get_strings_2_svc(gstrings_arg *arg, gstrings_ret *ret, struct svc_req *rqstp)
     gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t           handle;
     const char                      *errmsg = NULL;
+    gss_name_t                      name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->princ, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           &prime_arg);
+                           &prime_arg, &name);
     if (ret->code)
         goto exit_func;
 
@@ -1546,7 +1655,7 @@ get_strings_2_svc(gstrings_arg *arg, gstrings_ret *ret, struct svc_req *rqstp)
     }
 
 exit_func:
-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+    stub_cleanup(handle, prime_arg, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -1558,10 +1667,11 @@ set_string_2_svc(sstring_arg *arg, generic_ret *ret, struct svc_req *rqstp)
     gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t           handle;
     const char                      *errmsg = NULL;
+    gss_name_t                      name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->princ, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           &prime_arg);
+                           &prime_arg, &name);
     if (ret->code)
         goto exit_func;
 
@@ -1584,7 +1694,7 @@ set_string_2_svc(sstring_arg *arg, generic_ret *ret, struct svc_req *rqstp)
     }
 
 exit_func:
-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+    stub_cleanup(handle, prime_arg, &client_name, &service_name, name);
     return TRUE;
 }
 
@@ -1599,7 +1709,7 @@ init_2_svc(krb5_ui_4 *arg, generic_ret *ret, struct svc_req *rqstp)
     char *cdots, *sdots;
 
     ret->code = stub_setup(*arg, rqstp, NULL, &handle, &ret->api_version,
-                           &client_name, &service_name, NULL);
+                           &client_name, &service_name, NULL, NULL);
     if (ret->code)
         goto exit_func;
 
@@ -1625,18 +1735,27 @@ init_2_svc(krb5_ui_4 *arg, generic_ret *ret, struct svc_req *rqstp)
         krb5_free_error_message(handle->context, errmsg);
 
 exit_func:
-    stub_cleanup(handle, NULL, &client_name, &service_name);
+    stub_cleanup(handle, NULL, &client_name, &service_name, NULL);
     return TRUE;
 }
 
 gss_name_t
 rqst2name(struct svc_req *rqstp)
 {
+    OM_uint32 maj_stat, min_stat;
+    gss_name_t name;
+    rpc_gss_rawcred_t * raw_cred;
+    gss_buffer_desc name_buff;
 
-    if (rqstp->rq_cred.oa_flavor == RPCSEC_GSS)
-        return rqstp->rq_clntname;
-    else
-        return rqstp->rq_clntcred;
+    rpc_gss_getcred(rqstp, &raw_cred, NULL, NULL);
+    name_buff.value = raw_cred->client_principal->name;
+    name_buff.length = raw_cred->client_principal->len;
+    maj_stat = gss_import_name(&min_stat, &name_buff,
+                               (gss_OID) GSS_C_NT_EXPORT_NAME, &name);
+    if (maj_stat != GSS_S_COMPLETE) {
+        return (NULL);
+    }
+    return (name);
 }
 
 bool_t
@@ -1648,10 +1767,11 @@ get_principal_keys_2_svc(getpkeys_arg *arg, getpkeys_ret *ret,
     gss_buffer_desc                 service_name = GSS_C_EMPTY_BUFFER;
     kadm5_server_handle_t           handle;
     const char                      *errmsg = NULL;
+    gss_name_t                      name = NULL;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->princ, &handle,
                            &ret->api_version, &client_name, &service_name,
-                           &prime_arg);
+                           &prime_arg, &name);
     if (ret->code)
         goto exit_func;
 
@@ -1692,6 +1812,6 @@ get_principal_keys_2_svc(getpkeys_arg *arg, getpkeys_ret *ret,
     }
 
 exit_func:
-    stub_cleanup(handle, prime_arg, &client_name, &service_name);
+    stub_cleanup(handle, prime_arg, &client_name, &service_name, name);
     return TRUE;
 }

@@ -3,7 +3,7 @@
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved
  */
 
-#include <gssrpc/rpc.h>
+#include <rpc/rpc.h>
 #include <krb5.h>
 #include <errno.h>
 #include <kadm5/admin.h>

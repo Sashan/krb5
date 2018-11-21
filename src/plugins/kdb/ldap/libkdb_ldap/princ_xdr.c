@@ -3,6 +3,10 @@
 #include "princ_xdr.h"
 #include <kadm5/admin.h>
 
+/* Solaris Kerberos: symbols available from libkadm5srv_mit*/
+extern void	xdralloc_create(XDR *, enum xdr_op);
+extern caddr_t	xdralloc_getdata(XDR *);
+
 bool_t
 ldap_xdr_krb5_ui_2(XDR *xdrs, krb5_ui_2 *objp)
 {

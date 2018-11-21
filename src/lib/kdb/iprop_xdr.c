@@ -9,6 +9,7 @@
 #pragma GCC diagnostic ignored "-Wunused-variable"
 #endif
 
+#if 0
 static bool_t
 xdr_int16_t (XDR *xdrs, int16_t *objp)
 {
@@ -38,6 +39,7 @@ xdr_uint32_t (XDR *xdrs, uint32_t *objp)
         return FALSE;
     return TRUE;
 }
+#endif
 
 bool_t
 xdr_utf8str_t (XDR *xdrs, utf8str_t *objp)

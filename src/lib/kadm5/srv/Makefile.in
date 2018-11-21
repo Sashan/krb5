@@ -2,7 +2,8 @@ mydir=lib$(S)kadm5$(S)srv
 BUILDTOP=$(REL)..$(S)..$(S)..
 LOCALINCLUDES = -I$(BUILDTOP)/include/kadm5 \
 	-I$(top_srcdir)/lib/gssapi/krb5 -I$(top_srcdir)/lib/gssapi/generic \
-	-I$(BUILDTOP)/lib/gssapi/krb5 -I$(BUILDTOP)/lib/gssapi/generic
+	-I$(BUILDTOP)/lib/gssapi/krb5 -I$(BUILDTOP)/lib/gssapi/generic \
+	-I$(top_srcdir)/lib/rpc
 DEFINES = @HESIOD_DEFS@
 
 ##DOSBUILDTOP = ..\..\..
@@ -14,13 +15,12 @@ LIBMINOR=0
 STOBJLISTS=../OBJS.ST OBJS.ST
 
 SHLIB_EXPDEPS=\
-	$(TOPLIBD)/libgssrpc$(SHLIBEXT) \
 	$(TOPLIBD)/libgssapi_krb5$(SHLIBEXT) \
 	$(TOPLIBD)/libkdb5$(SHLIBEXT) \
 	$(TOPLIBD)/libkrb5$(SHLIBEXT) \
 	$(TOPLIBD)/libk5crypto$(SHLIBEXT) \
 	$(COM_ERR_DEPLIB) $(SUPPORT_LIBDEP)
-SHLIB_EXPLIBS =	-lgssrpc -lgssapi_krb5 -lkdb5 $(KDB5_DB_LIB) \
+SHLIB_EXPLIBS =	 -lgssapi_krb5 -lkdb5 $(KDB5_DB_LIB) \
 		-lkrb5 -lk5crypto $(SUPPORT_LIB) -lcom_err @GEN_LIB@ $(LIBS)
 RELDIR=kadm5/srv
 
@@ -37,6 +37,8 @@ SRCS =	$(srcdir)/pwqual.c \
 	$(srcdir)/server_init.c \
 	$(srcdir)/svr_iters.c \
 	$(srcdir)/svr_chpass_util.c \
+	$(top_srcdir)/lib/rpc/xdr_alloc.c \
+	$(top_srcdir)/lib/rpc/dyn.c \
 	$(srcdir)/adb_xdr.c 
 
 OBJS =	pwqual.$(OBJEXT) \
@@ -52,6 +54,8 @@ OBJS =	pwqual.$(OBJEXT) \
 	server_init.$(OBJEXT) \
 	svr_iters.$(OBJEXT) \
 	svr_chpass_util.$(OBJEXT) \
+	$(top_srcdir)/lib/rpc/xdr_alloc.$(OBJEXT) \
+	$(top_srcdir)/lib/rpc/dyn.$(OBJEXT) \
 	adb_xdr.$(OBJEXT) 
 
 STLIBOBJS = \
@@ -68,6 +72,8 @@ STLIBOBJS = \
 	server_init.o \
 	svr_iters.o \
 	svr_chpass_util.o \
+	$(top_srcdir)/lib/rpc/xdr_alloc.o \
+	$(top_srcdir)/lib/rpc/dyn.o \
 	adb_xdr.o
 
 all-unix: all-liblinks

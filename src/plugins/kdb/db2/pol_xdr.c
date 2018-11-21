@@ -1,6 +1,6 @@
 #include <sys/types.h>
 #include <krb5.h>
-#include <gssrpc/rpc.h>
+#include <rpc/rpc.h>
 #include <kdb.h>
 #include <kadm5/admin_xdr.h>
 #include "policy_db.h"
