@@ -107,7 +107,7 @@ default, the master admin server is contacted.
 .TP
 .B \fB\-f\fP \fIfile\fP
 Specifies the filename where the dumped principal database file is
-to be stored; by default the dumped database file is \fB@LOCALSTATEDIR@\fP\fB/krb5kdc\fP\fB/from_master\fP\&.
+to be stored; by default the dumped database file is \fB@LOCALSTATEDIR@\fP\fB/krb5\fP\fB/from_master\fP\&.
 .TP
 .B \fB\-p\fP
 Allows the user to specify the pathname to the \fIkdb5_util(8)\fP
@@ -131,7 +131,7 @@ is only useful in combination with the \fB\-S\fP option.
 .TP
 .B \fB\-a\fP \fIacl_file\fP
 Allows the user to specify the path to the kpropd.acl file; by
-default the path used is \fB@LOCALSTATEDIR@\fP\fB/krb5kdc\fP\fB/kpropd.acl\fP\&.
+default the path used is \fB@LOCALSTATEDIR@\fP\fB/krb5\fP\fB/kpropd.acl\fP\&.
 .TP
 .B \fB\-\-pid\-file\fP=\fIpid_file\fP
 In standalone mode, write the process ID of the daemon into
