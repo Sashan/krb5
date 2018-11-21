@@ -150,6 +150,22 @@ kg_oid_size(kcontext, arg, sizep)
 }
 
 static krb5_error_code
+kg_queue_externalize(kcontext, arg, buffer, lenremain)
+    krb5_context        kcontext;
+    krb5_pointer        arg;
+    krb5_octet          **buffer;
+    size_t              *lenremain;
+{
+    krb5_error_code err;
+    err = krb5_ser_pack_int32(KV5M_GSS_QUEUE, buffer, lenremain);
+    if (err == 0)
+        err = g_queue_externalize(arg, buffer, lenremain);
+    if (err == 0)
+        err = krb5_ser_pack_int32(KV5M_GSS_QUEUE, buffer, lenremain);
+    return err;
+}
+
+static krb5_error_code
 kg_seqstate_externalize(kcontext, arg, buffer, lenremain)
     krb5_context        kcontext;
     g_seqnum_state      arg;
@@ -163,6 +179,48 @@ kg_seqstate_externalize(kcontext, arg, buffer, lenremain)
     if (err == 0)
         err = krb5_ser_pack_int32(KV5M_GSS_QUEUE, buffer, lenremain);
     return err;
+}
+
+static krb5_error_code
+kg_queue_internalize(kcontext, argp, buffer, lenremain)
+    krb5_context        kcontext;
+    krb5_pointer        *argp;
+    krb5_octet          **buffer;
+    size_t              *lenremain;
+{
+    krb5_int32 ibuf;
+    krb5_octet         *bp;
+    size_t             remain;
+    krb5_error_code    err;
+
+    bp = *buffer;
+    remain = *lenremain;
+
+    /* Read in and check our magic number */
+    if (krb5_ser_unpack_int32(&ibuf, &bp, &remain))
+        return (EINVAL);
+
+    if (ibuf != KV5M_GSS_QUEUE)
+        return (EINVAL);
+
+    err = g_queue_internalize(argp, &bp, &remain);
+    if (err)
+        return err;
+
+    /* Read in and check our trailing magic number */
+    if (krb5_ser_unpack_int32(&ibuf, &bp, &remain)) {
+        g_order_free(argp);
+        return (EINVAL);
+    }
+
+    if (ibuf != KV5M_GSS_QUEUE) {
+        g_order_free(argp);
+        return (EINVAL);
+    }
+
+    *buffer = bp;
+    *lenremain = remain;
+    return 0;
 }
 
 static krb5_error_code
@@ -205,6 +263,26 @@ kg_seqstate_internalize(kcontext, argp, buffer, lenremain)
     *buffer = bp;
     *lenremain = remain;
     return 0;
+}
+
+static krb5_error_code
+kg_queue_size(kcontext, arg, sizep)
+    krb5_context        kcontext;
+    krb5_pointer        arg;
+    size_t              *sizep;
+{
+    krb5_error_code kret;
+    size_t required;
+
+    kret = EINVAL;
+    if (arg) {
+        required = 2*sizeof(krb5_int32); /* For the header and trailer */
+        (void) g_queue_size(arg, &required);
+
+        kret = 0;
+        *sizep += required;
+    }
+    return(kret);
 }
 
 static krb5_error_code
@@ -319,8 +397,9 @@ kg_ctx_size(kcontext, arg, sizep)
                                &required);
 
         if (!kret && ctx->seqstate)
-            kret = kg_seqstate_size(kcontext, ctx->seqstate, &required);
+            kret = kg_queue_size(kcontext, ctx->seqstate, &required);
 
+#if 0 /* PROVIDE_KERNEL_IMPORT */
         if (!kret)
             kret = krb5_size_opaque(kcontext,
                                     KV5M_CONTEXT,
@@ -331,11 +410,13 @@ kg_ctx_size(kcontext, arg, sizep)
                                     KV5M_AUTH_CONTEXT,
                                     (krb5_pointer) ctx->auth_context,
                                     &required);
+#endif /* PROVIDE_KERNEL_IMPORT */
         if (!kret && ctx->acceptor_subkey)
             kret = krb5_size_opaque(kcontext,
                                     KV5M_KEYBLOCK, (krb5_pointer)
                                     &ctx->acceptor_subkey->keyblock,
                                     &required);
+#if 0 /* PROVIDE_KERNEL_IMPORT */
         if (!kret && ctx->authdata) {
             krb5_int32 i;
 
@@ -358,6 +439,7 @@ kg_ctx_size(kcontext, arg, sizep)
                                         &required);
             }
         }
+#endif /* PROVIDE_KERNEL_IMPORT */
         *sizep += required;
     }
     return(kret);
@@ -400,6 +482,8 @@ kg_ctx_externalize(kcontext, arg, buffer, lenremain)
                                        &bp, &remain);
             (void) krb5_ser_pack_int32((krb5_int32) ctx->established,
                                        &bp, &remain);
+	    (void) krb5_ser_pack_int32((krb5_int32) ctx->big_endian,
+				       &bp, &remain);
             (void) krb5_ser_pack_int32((krb5_int32) ctx->have_acceptor_subkey,
                                        &bp, &remain);
             (void) krb5_ser_pack_int32((krb5_int32) ctx->seed_init,
@@ -467,10 +551,21 @@ kg_ctx_externalize(kcontext, arg, buffer, lenremain)
                                                &ctx->seq->keyblock,
                                                &bp, &remain);
 
-            if (!kret && ctx->seqstate)
-                kret = kg_seqstate_externalize(kcontext,
-                                               ctx->seqstate, &bp, &remain);
+            if (!kret && ctx->seqstate) {
+                void *q = NULL;
 
+                kret = g_order_init(&q, ctx->seq_recv,
+                                    (ctx->gss_flags & GSS_C_REPLAY_FLAG) != 0,
+                                    (ctx->gss_flags & GSS_C_SEQUENCE_FLAG) != 0,
+                                    ctx->proto);
+
+                if (!kret) {
+                    kret = kg_queue_externalize(kcontext, q, &bp, &remain);
+                    g_order_free(&q);
+                }
+            }
+
+#if 0 /* PROVIDE_KERNEL_IMPORT */
             if (!kret)
                 kret = krb5_externalize_opaque(kcontext,
                                                KV5M_CONTEXT,
@@ -482,6 +577,7 @@ kg_ctx_externalize(kcontext, arg, buffer, lenremain)
                                                KV5M_AUTH_CONTEXT,
                                                (krb5_pointer) ctx->auth_context,
                                                &bp, &remain);
+#endif /* PROVIDE_KERNEL_IMPORT */
 
             if (!kret)
                 kret = krb5_ser_pack_int32((krb5_int32) ctx->proto,
@@ -501,6 +597,7 @@ kg_ctx_externalize(kcontext, arg, buffer, lenremain)
             if (!kret)
                 kret = krb5_ser_pack_int32((krb5_int32) ctx->cred_rcache,
                                            &bp, &remain);
+#if 0 	/* PROVIDE_KERNEL_IMPORT */
             if (!kret) {
                 krb5_int32 i = 0;
 
@@ -534,6 +631,7 @@ kg_ctx_externalize(kcontext, arg, buffer, lenremain)
                                                    &remain);
                 }
             }
+#endif /* PROVIDE_KERNEL_IMPORT */
             /* trailer */
             if (!kret)
                 kret = krb5_ser_pack_int32(KG_CONTEXT, &bp, &remain);
@@ -610,6 +708,8 @@ kg_ctx_internalize(kcontext, argp, buffer, lenremain)
             ctx->initiate = (int) ibuf;
             (void) krb5_ser_unpack_int32(&ibuf, &bp, &remain);
             ctx->established = (int) ibuf;
+            (void) krb5_ser_unpack_int32(&ibuf, &bp, &remain);
+            ctx->big_endian = (int) ibuf;
             (void) krb5_ser_unpack_int32(&ibuf, &bp, &remain);
             ctx->have_acceptor_subkey = (int) ibuf;
             (void) krb5_ser_unpack_int32(&ibuf, &bp, &remain);
@@ -695,12 +795,13 @@ kg_ctx_internalize(kcontext, argp, buffer, lenremain)
             }
 
             if (!kret) {
-                kret = kg_seqstate_internalize(kcontext, &ctx->seqstate,
+                kret = kg_queue_internalize(kcontext, &ctx->seqstate,
                                                &bp, &remain);
                 if (kret == EINVAL)
                     kret = 0;
             }
 
+#if 0 /* PROVIDE_KERNEL_IMPORT */
             if (!kret)
                 kret = krb5_internalize_opaque(kcontext,
                                                KV5M_CONTEXT,
@@ -712,10 +813,19 @@ kg_ctx_internalize(kcontext, argp, buffer, lenremain)
                                                KV5M_AUTH_CONTEXT,
                                                (krb5_pointer *) &ctx->auth_context,
                                                &bp, &remain);
+#endif /* PROVIDE_KERNEL_IMPORT */
 
             if (!kret)
                 kret = krb5_ser_unpack_int32(&ibuf, &bp, &remain);
             ctx->proto = ibuf;
+
+            if (!kret) {
+                g_order_free((void **)&(ctx->seqstate));
+                kret = g_seqstate_init(&(ctx->seqstate), ctx->seq_recv,
+                    (ctx->gss_flags & GSS_C_REPLAY_FLAG) != 0,
+                    (ctx->gss_flags & GSS_C_SEQUENCE_FLAG) != 0, ctx->proto);
+            }
+
             if (!kret)
                 kret = krb5_ser_unpack_int32(&ibuf, &bp, &remain);
             ctx->cksumtype = ibuf;
@@ -731,6 +841,7 @@ kg_ctx_internalize(kcontext, argp, buffer, lenremain)
             if (!kret)
                 kret = krb5_ser_unpack_int32(&ibuf, &bp, &remain);
             ctx->cred_rcache = ibuf;
+#if 0 /* PROVIDE_KERNEL_IMPORT */
             /* authdata */
             if (!kret)
                 kret = krb5_ser_unpack_int32(&ibuf, &bp, &remain);
@@ -769,6 +880,7 @@ kg_ctx_internalize(kcontext, argp, buffer, lenremain)
                         kret = 0;
                 }
             }
+#endif /* PROVIDE_KERNEL_IMPORT */
             /* Get trailer */
             if (!kret)
                 kret = krb5_ser_unpack_int32(&ibuf, &bp, &remain);
