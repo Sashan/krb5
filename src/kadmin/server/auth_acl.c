@@ -45,6 +45,7 @@
 #define ACL_LIST                128
 #define ACL_SETKEY              256
 #define ACL_IPROP               512
+#define	ACL_MIGRATE             1024
 
 #define ACL_ALL_MASK            (ACL_ADD        |       \
                                  ACL_DELETE     |       \
@@ -53,7 +54,8 @@
                                  ACL_INQUIRE    |       \
                                  ACL_LIST       |       \
                                  ACL_IPROP      |       \
-                                 ACL_SETKEY)
+                                 ACL_SETKEY     |       \
+                                 ACL_MIGRATE)
 
 struct acl_op_table {
     char op;
@@ -76,6 +78,7 @@ static const struct acl_op_table acl_op_table[] = {
     { 'i', ACL_INQUIRE },
     { 'l', ACL_LIST },
     { 'p', ACL_IPROP },
+    { 'u', ACL_MIGRATE },
     { 's', ACL_SETKEY },
     { 'x', ACL_ALL_MASK },
     { '*', ACL_ALL_MASK },
@@ -720,6 +723,16 @@ acl_iprop(krb5_context context, kadm5_auth_moddata data,
     return acl_check(data, ACL_IPROP, client, NULL, NULL);
 }
 
+static krb5_error_code
+acl_migrate(krb5_context context, kadm5_auth_moddata data,
+             krb5_const_principal client, krb5_const_principal target,
+             const struct _kadm5_principal_ent_t *ent, long mask,
+             struct kadm5_auth_restrictions **rs_out)
+{
+    return acl_check(data, ACL_MIGRATE, client, target, rs_out);
+}
+
+
 krb5_error_code
 kadm5_auth_acl_initvt(krb5_context context, int maj_ver, int min_ver,
                       krb5_plugin_vtable vtable)
@@ -751,5 +764,6 @@ kadm5_auth_acl_initvt(krb5_context context, int maj_ver, int min_ver,
     vt->getpol = acl_getpol;
     vt->listpols = acl_listpols;
     vt->iprop = acl_iprop;
+    vt->migrate = acl_migrate;
     return 0;
 }

@@ -52,6 +52,7 @@
 #define OP_GETPOL      17
 #define OP_LISTPOLS    18
 #define OP_IPROP       19
+#define OP_MIGRATE     20
 
 /* Initialize all authorization modules. */
 krb5_error_code auth_init(krb5_context context, const char *acl_file);
