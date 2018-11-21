@@ -178,6 +178,13 @@ get_negTokenResp(OM_uint32 *, unsigned char *, unsigned int,
 static int
 is_kerb_mech(gss_OID oid);
 
+/* encoded OID octet string for NTLMSSP security mechanism */
+#define GSS_MECH_NTLMSSP_OID_LENGTH 10
+#define GSS_MECH_NTLMSSP_OID "\053\006\001\004\001\202\067\002\002\012"
+static gss_OID_desc ntlmssp_oid = {
+	GSS_MECH_NTLMSSP_OID_LENGTH, GSS_MECH_NTLMSSP_OID
+};
+
 /* SPNEGO oid structure */
 static const gss_OID_desc spnego_oids[] = {
 	{SPNEGO_OID_LENGTH, SPNEGO_OID},
@@ -1347,6 +1354,7 @@ acc_ctx_new(OM_uint32 *minor_status,
 	gss_buffer_desc der_mechTypes;
 	gss_OID mech_wanted;
 	spnego_gss_ctx_id_t sc = NULL;
+        unsigned int i;
 
 	ret = GSS_S_DEFECTIVE_TOKEN;
 	der_mechTypes.length = 0;
@@ -1369,6 +1377,26 @@ acc_ctx_new(OM_uint32 *minor_status,
 		*return_token = NO_TOKEN_SEND;
 		goto cleanup;
 	}
+
+ 	/*
+	 * We add KRB5_WRONG here so that old MS clients can negotiate this
+	 * mechanism, which allows extensions in Kerberos (clock skew
+	 * adjustment, refresh ccache).
+	 */
+	for (i = 0; i < supported_mechSet->count; i++) {
+		if (is_kerb_mech(&supported_mechSet->elements[i])) {
+			extern gss_OID_desc * const gss_mech_krb5_wrong;
+			ret = gss_add_oid_set_member(minor_status,
+			    			     gss_mech_krb5_wrong,
+						     &supported_mechSet);
+			if (ret != GSS_S_COMPLETE) {
+				*return_token = NO_TOKEN_SEND;
+				goto cleanup;
+			}
+			break;
+		}
+        }
+
 	/*
 	 * Select the best match between the list of mechs
 	 * that the initiator requested and the list that
@@ -3094,6 +3122,7 @@ get_available_mechs(OM_uint32 *minor_status,
 	gss_OID_set mechs, goodmechs;
 	gss_OID_set_desc except_attrs;
 	gss_OID_desc attr_oids[2];
+        char *msinterop = getenv("MS_INTEROP");
 
 	attr_oids[0] = *GSS_C_MA_DEPRECATED;
 	attr_oids[1] = *GSS_C_MA_NOT_DFLT_MECH;
@@ -3115,6 +3144,15 @@ get_available_mechs(OM_uint32 *minor_status,
 		return (major_status);
 	}
 
+	/*
+	 * If the required keytab entries for Kerberized SMB service are
+	 * missing due to an SMB authentication upgrade failure, SMB daemon
+	 * will set MS_INTEROP environmment variable to 1 to ensure only
+	 * NTLMSSP security mech is used for negotiation.
+	 */
+	if ((msinterop != NULL) && (!strcmp(msinterop, "1")))
+		goto ntlmssp;
+
 	for (i = 0; i < mechs->count && major_status == GSS_S_COMPLETE; i++) {
 		if ((mechs->elements[i].length
 		    != spnego_mechanism.mech_type.length) ||
@@ -3128,6 +3166,25 @@ get_available_mechs(OM_uint32 *minor_status,
 			if (major_status == GSS_S_COMPLETE)
 				found++;
 		}
+	}
+
+ntlmssp:
+	/*
+	 * Add NTLMSSP OID to the mech OID set only if MS_INTEROP env var has
+	 * been set to:
+	 * - "1" (NTLMSSP only) or
+	 * - "2" (both Krb5 and NTLMSSP)
+	 *
+	 * This is a requirement until NTLMSSP is implemented as a GSS-API
+	 * plugin.
+	 */
+	if ((msinterop != NULL) &&
+	    (!strcmp(msinterop, "1") || !strcmp(msinterop, "2"))) {
+		major_status = gss_add_oid_set_member(minor_status,
+		    &ntlmssp_oid, rmechs);
+
+		if (major_status == GSS_S_COMPLETE)
+			found++;
 	}
 
 	/*
@@ -3705,9 +3762,17 @@ negotiate_mech(gss_OID_set supported, gss_OID_set received,
 	for (i = 0; i < received->count; i++) {
 		gss_OID mech_oid = &received->elements[i];
 
+		/*
+		 * MIT compares against MS' wrong OID, but we actually want to
+		 * select it if the client supports, as this will enable
+		 * features on MS clients that allow credential refresh on
+		 * rekeying and caching system times from servers.
+		 */
+#if 0
 		/* Accept wrong mechanism OID from MS clients */
 		if (g_OID_equal(mech_oid, &gss_mech_krb5_wrong_oid))
 			mech_oid = (gss_OID)&gss_mech_krb5_oid;
+#endif
 
 		for (j = 0; j < supported->count; j++) {
 			if (g_OID_equal(mech_oid, &supported->elements[j])) {
