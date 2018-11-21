@@ -177,7 +177,7 @@ static time_t	yyRelSeconds;
 %}
 
 /* Mute shift/reduce warning as per header comment. */
-%expect 4
+/* %expect 4 */
 
 %union {
     time_t		Number;

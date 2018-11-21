@@ -28,6 +28,12 @@
 #include "os-proto.h"
 #include "../krb/int-proto.h"
 
+/*
+ * SunStudio on Solaris 10 is not able to deal with DESIGNATED_INITIALIZERS
+ * This is a quick and dirty hack, which gets S10 compiler over modern C
+ * features.
+ */
+#if 0
 /* If this trick gets used elsewhere, move it to k5-platform.h.  */
 #ifndef DESIGNATED_INITIALIZERS
 /* ANSI/ISO C 1999 supports this...  */
@@ -37,6 +43,7 @@
 #define DESIGNATED_INITIALIZERS 1
 #else
 #define DESIGNATED_INITIALIZERS 0
+#endif
 #endif
 #endif
 

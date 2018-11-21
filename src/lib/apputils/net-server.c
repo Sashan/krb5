@@ -115,11 +115,22 @@ enum bind_type {
     UDP, TCP, RPC
 };
 
+/*
+ * Fixing SunStudio glitch on S10.
+ */
+#if 0
 static const char *const bind_type_names[] = {
     [UDP] = "UDP",
     [TCP] = "TCP",
     [RPC] = "RPC",
 };
+#else
+static const char *const bind_type_names[] = {
+    "UDP",
+    "TCP",
+    "RPC",
+};
+#endif
 
 /* Per-connection info.  */
 struct connection {
@@ -767,6 +778,10 @@ setnolinger(int s)
     return setsockopt(s, SOL_SOCKET, SO_LINGER, &ling, sizeof(ling));
 }
 
+/*
+ * Fixing SunStudio glitch on S10.
+ */
+#if 0
 /* An enum map to socket families for each bind_type. */
 static const int bind_socktypes[] =
 {
@@ -774,7 +789,19 @@ static const int bind_socktypes[] =
     [TCP] = SOCK_STREAM,
     [RPC] = SOCK_STREAM
 };
+#else
+static const int bind_socktypes[] =
+{
+    SOCK_DGRAM,
+    SOCK_STREAM,
+    SOCK_STREAM
+};
+#endif
 
+/*
+ * Fixing SunStudio glitch on S10.
+ */
+#if 0
 /* An enum map containing conn_type (for struct connection) for each
  * bind_type.  */
 static const enum conn_type bind_conn_types[] =
@@ -783,6 +810,14 @@ static const enum conn_type bind_conn_types[] =
     [TCP] = CONN_TCP_LISTENER,
     [RPC] = CONN_RPC_LISTENER
 };
+#else
+static const enum conn_type bind_conn_types[] =
+{
+    CONN_UDP,
+    CONN_TCP_LISTENER,
+    CONN_RPC_LISTENER
+};
+#endif
 
 /*
  * Set up a listening socket.
@@ -943,11 +978,22 @@ setup_addresses(verto_ctx *ctx, void *handle, const char *prog,
                 int tcp_listen_backlog)
 {
     /* An bind_type enum map for the verto callback functions. */
+/*
+ * Fixing SunStudio glitch on S10.
+ */
+#if 0
     static verto_callback *const verto_callbacks[] = {
         [UDP] = &process_packet,
         [TCP] = &accept_tcp_connection,
         [RPC] = &accept_rpc_connection
     };
+#else
+    static verto_callback *const verto_callbacks[] = {
+        &process_packet,
+        &accept_tcp_connection,
+        &accept_rpc_connection
+    };
+#endif
     krb5_error_code ret = 0;
     size_t i;
     int err, bound_any;
