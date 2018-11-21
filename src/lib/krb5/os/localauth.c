@@ -258,6 +258,49 @@ parse_mapping_value(const char *value, char **type_out, char **residual_out)
     return 0;
 }
 
+/*
+ * Return true (1) if the princ's realm matches any of the
+ * 'auth_to_local_realm' relations in the default realm section.
+ */
+static int
+an_to_ln_realm_chk(
+    krb5_context context,
+    krb5_const_principal aname,
+    char *def_realm)
+{
+    char **values, **cpp;
+    const char *realm_names[4];
+    krb5_error_code retval;
+    unsigned int realm_length = krb5_princ_realm(context, aname)->length;
+
+    realm_names[0] = "realms";
+    realm_names[1] = def_realm;
+    realm_names[2] = "auth_to_local_realm";
+    realm_names[3] = 0;
+
+    if (context->profile == 0)
+        return (0);
+
+    retval = profile_get_values(context->profile, realm_names,
+                                &values);
+    if (retval)
+        return (0);
+
+    for (cpp = values; *cpp; cpp++) {
+
+        if (((size_t) realm_length == strlen(*cpp)) &&
+            (memcmp(*cpp, krb5_princ_realm(context, aname)->data,
+                    realm_length) == 0)) {
+
+            profile_free_list(values);
+            return (1); /* success */
+        }
+    }
+
+    profile_free_list(values);
+    return (0);
+}
+
 /* Apply the default an2ln method, which translates name@defaultrealm or
  * name/defaultrealm@defaultrealm to name. */
 static krb5_error_code
@@ -274,7 +317,8 @@ an2ln_default(krb5_context context, krb5_localauth_moddata data,
     if (ret)
         return KRB5_LNAME_NOTRANS;
 
-    if (!data_eq_string(aname->realm, def_realm)) {
+    if (!data_eq_string(aname->realm, def_realm) && !an_to_ln_realm_chk(context,
+	aname, def_realm)) {
         ret = KRB5_LNAME_NOTRANS;
     } else if (aname->length == 2) {
         /* Allow a second component if it is the local realm. */

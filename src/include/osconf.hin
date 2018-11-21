@@ -91,6 +91,10 @@
 #define DEFAULT_KDC_TCP_PORTLIST "88"
 #define DEFAULT_TCP_LISTEN_BACKLOG 5
 
+/* control # of kdc tcp connection */
+#define DEFAULT_KDC_TCP_CONNECTIONS     45
+#define MIN_KDC_TCP_CONNECTIONS         10
+
 /*
  * Defaults for the KADM5 admin system.
  */
