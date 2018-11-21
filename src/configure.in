@@ -612,6 +612,7 @@ if test "$ac_cv_func_getpwnam_r" = yes; then
     fi
   fi
 fi
+CFLAGS=$old_CFLAGS
 
 if test "$ac_cv_func_getpwnam_r" = no && test "$ac_cv_func_getpwuid_r" = yes; then
   # Actually, we could do this check, and the corresponding checks
