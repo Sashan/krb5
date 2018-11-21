@@ -113,6 +113,13 @@ struct log_entry {
         struct log_file {
             FILE        *lf_filep;
             char        *lf_fname;
+            /* Solaris Kerberos */
+            char        *lf_fopen_mode; /* "a+" or "w" */
+#define K_LOG_DEF_FILE_ROTATE_PERIOD    -1      /* never */
+#define K_LOG_DEF_FILE_ROTATE_VERSIONS  0       /* no versions */
+            time_t      lf_rotate_period;
+            time_t      lf_last_rotated;
+            int         lf_rotate_versions;
         } log_file;
         struct log_syslog {
             int         ls_facility;
@@ -126,6 +133,11 @@ struct log_entry {
 };
 #define lfu_filep       log_union.log_file.lf_filep
 #define lfu_fname       log_union.log_file.lf_fname
+/* Solaris Kerberos */
+#define lfu_fopen_mode  log_union.log_file.lf_fopen_mode
+#define lfu_rotate_period       log_union.log_file.lf_rotate_period
+#define lfu_last_rotated        log_union.log_file.lf_last_rotated
+#define lfu_rotate_versions     log_union.log_file.lf_rotate_versions
 #define lsu_facility    log_union.log_syslog.ls_facility
 #define lsu_severity    log_union.log_syslog.ls_severity
 #define ldu_filep       log_union.log_device.ld_filep
@@ -159,6 +171,132 @@ static struct log_entry def_log_entry;
                                  (fflush(f), 0) :                       \
                                  -1)
 #define DEVICE_CLOSE(d)         fclose(d)
+
+/*
+ * Solaris Kerberos
+ * klog_rotate() - roate a log file if we have specified rotation
+ * parameters in krb5.conf.
+ */
+static void
+klog_rotate(struct log_entry *le)
+{
+    time_t t;
+    int i;
+    char *name_buf1;
+    char *name_buf2;
+    char *old_name;
+    char *new_name;
+    char *tmp;
+    FILE *fp;
+    int num_vers;
+    mode_t old_umask;
+
+    /*
+     * By default we don't rotate.
+     */
+    if (le->lfu_rotate_period == K_LOG_DEF_FILE_ROTATE_PERIOD)
+        return;
+
+    t = time(0);
+
+    if (t >= le->lfu_last_rotated + le->lfu_rotate_period) {
+        /*
+         * The N log file versions will be renamed X.N-1 X.N-2, ... X.0.
+         * So the allocate file name buffers that can the version
+         * number extensions.
+         * 32 extra bytes is plenty.
+         */
+        name_buf1 = malloc(strlen(le->lfu_fname) + 32);
+
+        if (name_buf1 == NULL)
+            return;
+
+        name_buf2 = malloc(strlen(le->lfu_fname) + 32);
+
+        if (name_buf2 == NULL) {
+            free(name_buf1);
+            return;
+        }
+
+        old_name = name_buf1;
+        new_name = name_buf2;
+
+        /*
+         * If there N versions, then the first one has file extension
+         * of N-1.
+         */
+        (void) sprintf(new_name, "%s.%d", le->lfu_fname,
+                       le->lfu_rotate_versions - 1);
+
+        /*
+         * Rename file.N-2 to file.N-1, file.N-3 to file.N-2, ...
+         * file.0 to file.1
+         */
+        for (i = le->lfu_rotate_versions - 1; i > 0; i--) {
+            (void) sprintf(old_name, "%s.%d", le->lfu_fname, i - 1);
+            (void) rename(old_name, new_name);
+
+            /*
+             * swap old name and new name. This way,
+             * on the next iteration, new_name.X
+             * becomes new_name.X-1.
+             */
+            tmp = old_name;
+            old_name = new_name;
+            new_name = tmp;
+        }
+        old_name = le->lfu_fname;
+
+        (void) rename(old_name, new_name);
+
+        /*
+         * Even though we don't know yet if the fopen()
+         * of the log file will succeed, we mark the log
+         * as rotated. This is so we don't repeatably
+         * rotate file.N-2 to file.N-1 ... etc without
+         * waiting for the rotate period to elapse.
+         */
+        le->lfu_last_rotated = t;
+
+        /*
+         * Default log file creation mode should be read-only
+         * by owner(root), but the admin can override with
+         * chmod(1) if desired.
+         */
+
+        old_umask = umask(077);
+        fp = fopen(old_name, le->lfu_fopen_mode);
+
+        umask(old_umask);
+
+        if (fp != NULL) {
+
+            (void) fclose(le->lfu_filep);
+            le->lfu_filep = fp;
+
+            /*
+             * If the version parameter in krb5.conf was
+             * 0, then we take this to mean that rotating the
+             * log file will cause us to dispose of the
+             * old one, and created a new one. We have just
+             * renamed the old one to file.-1, so remove it.
+             */
+            if (le->lfu_rotate_versions <= 0)
+                (void) unlink(new_name);
+
+        } else {
+            fprintf(stderr,
+                    _("During rotate, couldn't open log file %s: %s\n"),
+                    old_name, error_message(errno));
+            /*
+             * Put it back.
+             */
+            (void) rename(new_name, old_name);
+        }
+        free(name_buf1);
+        free(name_buf2);
+    }
+}
 
 /*
  * klog_com_err_proc()  - Handle com_err(3) messages as specified by the
@@ -262,6 +400,8 @@ klog_com_err_proc(const char *whoami, long int code, const char *format, va_list
 
         switch (log_control.log_entries[lindex].log_type) {
         case K_LOG_FILE:
+            /* Solaris Kerberos */
+            klog_rotate(&log_control.log_entries[lindex]);
         case K_LOG_STDERR:
             /*
              * Files/standard error.
@@ -344,6 +484,7 @@ krb5_klog_init(krb5_context kcontext, char *ename, char *whoami, krb5_boolean do
     int         error, debug;
     int         do_openlog, log_facility;
     FILE        *f = NULL;
+    mode_t      old_umask;
 
     /* Initialize */
     do_openlog = 0;
@@ -414,6 +555,7 @@ krb5_klog_init(krb5_context kcontext, char *ename, char *whoami, krb5_boolean do
                      */
                     append = (cp[4] == ':') ? O_APPEND : 0;
                     if (append || cp[4] == '=') {
+                        char rotate_kw[128];
                         fd = open(&cp[5], O_CREAT | O_WRONLY | append,
                                   S_IRUSR | S_IWUSR | S_IRGRP);
                         if (fd != -1)
@@ -427,6 +569,56 @@ krb5_klog_init(krb5_context kcontext, char *ename, char *whoami, krb5_boolean do
                         log_control.log_entries[i].lfu_filep = f;
                         log_control.log_entries[i].log_type = K_LOG_FILE;
                         log_control.log_entries[i].lfu_fname = &cp[5];
+                        log_control.log_entries[i].lfu_rotate_period =
+                            K_LOG_DEF_FILE_ROTATE_PERIOD;
+                        log_control.log_entries[i].lfu_rotate_versions =
+                            K_LOG_DEF_FILE_ROTATE_VERSIONS;
+                        log_control.log_entries[i].lfu_last_rotated =
+                            time(0);
+                        log_control.log_entries[i].lfu_fopen_mode =
+                            append ? "a" : "w";
+
+                        /*
+                         * Now parse for ename_"rotate" = {
+                         *  period = XXX
+                         *  versions = 10
+                         * }
+                         */
+                        if (strlen(ename) + strlen("_rotate") <
+                            sizeof (rotate_kw)) {
+
+                            char *time;
+                            krb5_deltat     dt;
+                            int vers;
+
+                            strcpy(rotate_kw, ename);
+                            strcat(rotate_kw, "_rotate");
+
+                            if (!profile_get_string(kcontext->profile,
+                                                    "logging", rotate_kw,
+                                                    "period", NULL,
+                                                    &time)) {
+
+                                if (time != NULL) {
+                                    if (!krb5_string_to_deltat(time,
+                                                               &dt)) {
+                                        log_control.log_entries[i].lfu_rotate_period =
+                                            (time_t) dt;
+                                    }
+                                    free(time);
+                                }
+                            }
+
+                            if (!profile_get_integer(
+                                                     kcontext->profile,
+                                                     "logging", rotate_kw,
+                                                     "versions",
+                                                     K_LOG_DEF_FILE_ROTATE_VERSIONS,
+                                                     &vers)) {
+                                log_control.log_entries[i].lfu_rotate_versions = vers;
+                            }
+
+                        }
                     }
                 }
                 /*
@@ -841,6 +1033,8 @@ klog_vsyslog(int priority, const char *format, va_list arglist)
 
         switch (log_control.log_entries[lindex].log_type) {
         case K_LOG_FILE:
+            /* Solaris Kerberos */
+            klog_rotate(&log_control.log_entries[lindex]);
         case K_LOG_STDERR:
             /*
              * Files/standard error.
