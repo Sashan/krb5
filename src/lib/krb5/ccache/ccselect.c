@@ -59,12 +59,17 @@ load_modules(krb5_context context)
     krb5_plugin_initvt_fn *modules = NULL, *mod;
     size_t count;
 
-#ifndef _WIN32
+    /*
+     * This plugin tries to access a .k5identity file in a user's home dir
+     * which causes the Solaris gssd to hang when that home dir is shared as a
+     * sec=krb5 protected NFS share so we are disabling this for now.
+     */
+#if 0 /* ************ Begin IFDEF'ed OUT ***************************** */
     ret = k5_plugin_register(context, PLUGIN_INTERFACE_CCSELECT, "k5identity",
                              ccselect_k5identity_initvt);
     if (ret != 0)
         goto cleanup;
-#endif
+#endif /* ************** END IFDEF'ed OUT ***************************** */
 
     ret = k5_plugin_register(context, PLUGIN_INTERFACE_CCSELECT, "realm",
                              ccselect_realm_initvt);

@@ -954,10 +954,6 @@ dynamic modules, the following built\-in modules exist (and may be
 disabled with the disable tag):
 .INDENT 0.0
 .TP
-.B \fBk5identity\fP
-Uses a .k5identity file in the user\(aqs home directory to select a
-client principal
-.TP
 .B \fBrealm\fP
 Uses the service realm to guess an appropriate cache from the
 collection

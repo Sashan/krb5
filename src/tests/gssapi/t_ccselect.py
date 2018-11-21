@@ -148,21 +148,23 @@ r1.run(['./t_ccselect', gssserver_bar], expected_msg=alice)
 r1.kinit(bob, password('bob'))
 
 # Try some cache selections using .k5identity.
-k5id = open(os.path.join(r1.testdir, '.k5identity'), 'w')
-k5id.write('%s realm=%s\n' % (alice, r1.realm))
-k5id.write('%s service=ho*t host=localhost\n' % zaphod)
-k5id.write('noprinc service=bogus')
-k5id.close()
-output = r1.run(['./t_ccselect', host1])
-if output != (alice + '\n'):
-    fail('alice not chosen via .k5identity realm line.')
-output = r2.run(['./t_ccselect', gsslocal])
-if output != (zaphod + '\n'):
-    fail('zaphod not chosen via .k5identity service/host line.')
-output = r1.run(['./t_ccselect', refserver])
-if output != (bob + '\n'):
-    fail('bob not chosen via primary cache when no .k5identity line matches.')
-r1.run(['./t_ccselect', 'h:bogus@' + foo2], expected_code=1,
-       expected_msg="Can't find client principal noprinc")
+#k5id = open(os.path.join(r1.testdir, '.k5identity'), 'w')
+#k5id.write('%s realm=%s\n' % (alice, r1.realm))
+#k5id.write('%s service=ho*t host=localhost\n' % zaphod)
+#k5id.write('noprinc service=bogus')
+#k5id.close()
+#output = r1.run(['./t_ccselect', host1])
+#if output != (alice + '\n'):
+#    fail('alice not chosen via .k5identity realm line.')
+#output = r2.run(['./t_ccselect', gsslocal])
+#if output != (zaphod + '\n'):
+#    fail('zaphod not chosen via .k5identity service/host line.')
+#output = r1.run(['./t_ccselect', refserver])
+#if output != (bob + '\n'):
+#    fail('bob not chosen via primary cache when no .k5identity line matches.')
+#r1.run(['./t_ccselect', 'h:bogus@' + foo2], expected_code=1,
+#       expected_msg="Can't find client principal noprinc")
+sys.stderr.write("Support of k5identity ccselect plugin disabled, skipping "
+    "k5identity tests...\n");
 
 success('GSSAPI credential selection tests')
