@@ -137,6 +137,12 @@ T}	T{
 T}
 _
 T{
+u
+T}	T{
+[Dis]allows the creation of one-component user principals whose password can be validated with PAM
+T}
+_
+T{
 x
 T}	T{
 Short for admcilsp. All privileges (except \fBe\fP)

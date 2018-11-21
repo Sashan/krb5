@@ -208,6 +208,10 @@ set if backward compatibility requires a specific checksum type.
 See the \fBkdc_req_checksum_type\fP configuration option for the
 possible values and their meanings.
 .TP
+.B \fBauth_to_local_realm\fP
+For use in the default realm, non-default realms can be equated
+with the default realm for authenticated name-to-local name mapping.
+.TP
 .B \fBcanonicalize\fP
 If this flag is set to true, initial ticket requests to the KDC
 will request canonicalization of the client principal name, and
@@ -520,7 +524,7 @@ attempt fails.
 .B \fBverify_ap_req_nofail\fP
 If this flag is true, then an attempt to verify initial
 credentials will fail if the client machine does not have a
-keytab.  The default value is false.
+keytab.  The default value is true.
 .UNINDENT
 .SS [realms]
 .sp
@@ -844,6 +848,52 @@ other realms should have \fBoption2\fP set to true.
 The list of specifiable options for each application may be found in
 that application\(aqs man pages.  The application defaults specified here
 are overridden by those specified in the \fI\%realms\fP section.
+.sp
+The following relations can be found in the \fB[appdefaults]\fP section,
+though not all relations are recognized by all kerberized applications.
+Some are specific to particular applications.
+.TP
+.B \fBautologin\fP = [\fBtrue\fP | \fBfalse\fP]
+Forces the application to attempt  automatic  login  by  presenting
+Kerberos credentials. This is valid for the following applications:
+\fBrlogin\fP, \fBrsh\fP, \fBrcp\fP, and \fBtelnet\fP.
+.TP
+.B \fBencrypt\fP = [\fBtrue\fP | \fBfalse\fP]
+Forces applications to use encryption by default (after authentication) to
+protect the privacy of the sessions. This is valid for the following
+applications: \fBrlogin\fP, \fBrsh\fP, \fBrcp\fP, and \fBtelnet\fP.
+.TP
+.B \fBforward\fP = [\fBtrue\fP | \fBfalse\fP]
+Forces applications to forward the user's credentials (after
+authentication) to the remote server. This is valid for the following
+applications: \fBrlogin\fP, \fBrsh\fP, \fBrcp\fP, and \fBtelnet\fP.
+.TP
+.B \fBforwardable\fP = [\fBtrue\fP | \fBfalse\fP]
+See the description in the \fB[libdefaults]\fP section above.  This is
+used by any application that creates a ticket granting ticket and
+also by applications that can forward tickets to a remote server.
+.TP
+.B \fBproxiable\fP = [\fBtrue\fP | \fBfalse\fP]
+See the description in the \fB[libdefaults]\fP section above. This is
+used by any application that creates a ticket granting ticket.
+.TP
+.B \fBrenewable\fP = [\fBtrue\fP | \fBfalse\fP]
+Creates a TGT that can be renewed (prior to the ticket expiration
+time). This is used by any application that creates a ticket granting ticket.
+.TP
+.B \fBnoaddresses\fP = [\fBtrue\fP | \fBfalse\fP]
+Creates tickets with no address bindings. This is to allow tickets
+to be used across a \fBNAT\fP boundary or when using multi-homed systems.
+This option is valid in the \fBkinit [appdefault]\fP section only.
+.TP
+.B \fBrcmd_protocol\fP = [ \fBrcmdv1\fP | \fBrcmdv2\fP ]
+Specifies which Kerberized "\fBrcmd\fP" protocol to use when using the
+Kerberized \fBrlogin\fP(1), \fBrsh\fP(1), or \fBrcp\fP(1) programs. The default
+is to use \fBrcmdv2\fP by default, as this is the more secure and more recent
+update of the protocol. However, when talking to older \fBMIT\fP or \fBSEAM\fP-
+based "\fBrcmd\fP" servers, it can be necessary to force the new clients
+to use the older \fBrcmdv1\fP protocol. This option is valid only for the
+following applications: \fBrlogin\fP, \fBrcp\fP, and \fBrsh\fP.
 .SS [plugins]
 .INDENT 0.0
 .INDENT 3.5
