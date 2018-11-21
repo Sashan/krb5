@@ -21,6 +21,11 @@ SRCS=kinit.c kinit_kdb.c \
 
 RPCGEN=@RPCGEN@
 
+#
+# kinit.c includes prof_solaris.h
+#
+CPPFLAGS=-I$(top_srcdir)/lib/krb5
+
 kwarnd.h:	../kwarn/kwarnd.x
 	$(RM) $@
 	$(RPCGEN) -M -h ../kwarn/kwarnd.x > $@
