@@ -53,29 +53,31 @@ realm.run(['./t_vfy_increds'])
 realm.run(['./t_vfy_increds', '-n'])
 
 # Remove the keytab and verify again.  This should succeed if nofail
-# is not set, and fail if it is set.
+# is set to false and fail otherwise.
 os.remove(realm.keytab)
-realm.run(['./t_vfy_increds'])
+realm.run(['./t_vfy_increds'], expected_code=1)
 realm.run(['./t_vfy_increds', '-n'], expected_code=1)
+realm.run(['./t_vfy_increds', '-f'])
 
 # Create an empty keytab file and verify again.  This simulates a
 # system where an admin ran "touch krb5.keytab" to work around a
 # Solaris Kerberos bug where krb5_kt_default() fails if the keytab
-# file doesn't exist.  Verification should succeed in nofail is not
-# set.  (An empty keytab file appears as corrupt to keytab calls,
+# file doesn't exist.  Verification should succeed if nofail is
+# set to false.  (An empty keytab file appears as corrupt to keytab calls,
 # causing a KRB5_KEYTAB_BADVNO error, so any tightening of the
 # krb5_verify_init_creds semantics needs to take this into account.)
 open(realm.keytab, 'w').close()
-realm.run(['./t_vfy_increds'])
+realm.run(['./t_vfy_increds'], expected_code=1)
 realm.run(['./t_vfy_increds', '-n'], expected_code=1)
+realm.run(['./t_vfy_increds', '-f'])
 os.remove(realm.keytab)
 
 # Add an NFS service principal to keytab.  Verify should ignore it by
-# default (succeeding unless nofail is set), but should verify with it
+# default (succeeding only when nofail is unset), but should verify with it
 # when it is specifically requested.
 realm.run([kadminl, 'addprinc', '-randkey', realm.nfs_princ])
 realm.run([kadminl, 'ktadd', realm.nfs_princ])
-realm.run(['./t_vfy_increds'])
+realm.run(['./t_vfy_increds'], expected_code=1)
 realm.run(['./t_vfy_increds', '-n'], expected_code=1)
 realm.run(['./t_vfy_increds', realm.nfs_princ])
 realm.run(['./t_vfy_increds', '-n', realm.nfs_princ])
@@ -84,7 +86,7 @@ realm.run(['./t_vfy_increds', '-n', realm.nfs_princ])
 # results with the default principal argument, but verification should
 # now fail if we request it specifically.
 realm.run([kadminl, 'change_password', '-randkey', realm.nfs_princ])
-realm.run(['./t_vfy_increds'])
+realm.run(['./t_vfy_increds'], expected_code=1)
 realm.run(['./t_vfy_increds', '-n'], expected_code=1)
 realm.run(['./t_vfy_increds', realm.nfs_princ], expected_code=1)
 realm.run(['./t_vfy_increds', '-n', realm.nfs_princ], expected_code=1)

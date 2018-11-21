@@ -33,8 +33,8 @@
 #include "k5-int.h"
 #include "int-proto.h"
 
-/* Return true if configuration demands that a keytab be present.  (By default
- * verification will be skipped if no keytab exists.) */
+/* Return true if configuration demands that a keytab be present.  (Verification
+ * will only be skipped IFF verify_ap_req_nofail has been set to false.) */
 static krb5_boolean
 nofail(krb5_context context, krb5_verify_init_creds_opt *options,
        krb5_creds *creds)
@@ -48,7 +48,7 @@ nofail(krb5_context context, krb5_verify_init_creds_opt *options,
                                    KRB5_CONF_VERIFY_AP_REQ_NOFAIL,
                                    &val) == 0)
         return (val != 0);
-    return FALSE;
+    return TRUE;
 }
 
 static krb5_error_code

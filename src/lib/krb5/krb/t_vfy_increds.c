@@ -60,6 +60,9 @@ main(int argc, char **argv)
     if (*argv != NULL && strcmp(*argv, "-n") == 0) {
         argv++;
         krb5_verify_init_creds_opt_set_ap_req_nofail(&opt, TRUE);
+    } else if (*argv != NULL && strcmp(*argv, "-f") == 0) {
+        argv++;
+        krb5_verify_init_creds_opt_set_ap_req_nofail(&opt, FALSE);
     }
     if (*argv != NULL)
         check(krb5_parse_name(context, *argv, &princ));
