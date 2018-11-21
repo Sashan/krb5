@@ -299,7 +299,7 @@ _kadm5_initialize_rpcsec_gss_handle(kadm5_server_handle_t handle,
 {
 	int code = 0;
 	generic_ret r = { 0, 0 };
-	char *ccname_orig = NULL;
+	const char *ccname_orig = NULL;
 	boolean_t iprop_enable = B_FALSE;
 	char mech[] = "kerberos_v5";
 	gss_OID mech_oid;
@@ -316,15 +316,13 @@ _kadm5_initialize_rpcsec_gss_handle(kadm5_server_handle_t handle,
 	int port;
 	struct timeval timeout;
 
-        /* service name is service/host */
-        server = strpbrk(service_name, "/");
+        /* service name is service@host */
+        server = strpbrk(service_name, "@");
         if (!server) {
 		code = KADM5_BAD_SERVER_NAME;
 		goto cleanup;
         }
-
-	/* but rpc_gss_secreate expects service@host */
-	*server++ = '@';
+	server++;
 
  	/*
 	 * If the service_name and client_name are iprop-centric
@@ -435,7 +433,7 @@ _kadm5_initialize_rpcsec_gss_handle(kadm5_server_handle_t handle,
 
 	if (ccname_orig) {
 		gssstat = gss_krb5_ccache_name(&minor_stat, ccname_orig, NULL);
-		free(ccname_orig);
+		free((void *)ccname_orig);
 		if (gssstat != GSS_S_COMPLETE) {
 			code = KADM5_GSS_ERROR;
 			goto error;
@@ -508,7 +506,7 @@ cleanup:
 
 static kadm5_ret_t
 init_any(krb5_context context, char *client_name, enum init_type init_type,
-         char *pass, krb5_ccache ccache_in, char *svcname_in,
+         char *pass, krb5_ccache ccache_in, char *svcname,
          kadm5_config_params *params_in, krb5_ui_4 struct_version,
          krb5_ui_4 api_version, char **db_args, void **server_handle)
 {
@@ -525,7 +523,7 @@ init_any(krb5_context context, char *client_name, enum init_type init_type,
     kadm5_config_params params_local;
 
     int code = 0;
-    char svcname[BUFSIZ];
+    generic_ret *r;
 
     initialize_ovk_error_table();
 /*      initialize_adb_error_table(); */
@@ -594,15 +592,19 @@ init_any(krb5_context context, char *client_name, enum init_type init_type,
         goto error;
 
     /* NULL svcname means use host-based. */
-    if (svcname_in == NULL) {
-        code = kadm5_get_admin_service_name(handle->context,
-                                            handle->params.realm,
-                                            svcname, sizeof(svcname));
+    if (svcname == NULL) {
+	char **kadmin_srv_names;
+
+	code = kadm5_get_adm_host_srv_names(context, handle->params.realm,
+	    &kadmin_srv_names);
         if (code)
             goto error;
-    } else {
-        strncpy(svcname, svcname_in, sizeof(svcname));
-        svcname[sizeof(svcname)-1] = '\0';
+	svcname = strdup(kadmin_srv_names[0]);
+	free_srv_names(kadmin_srv_names);
+	if (svcname == NULL) {
+	    code = ENOMEM;
+            goto error;
+	}
     }
 
     /* Get credentials. */
@@ -658,12 +660,50 @@ cleanup:
 static kadm5_ret_t
 get_init_creds(kadm5_server_handle_t handle, krb5_principal client,
                enum init_type init_type, char *pass, krb5_ccache ccache_in,
-               char *svcname, char *realm, krb5_principal *server_out)
+               char *svcname_in, char *realm, krb5_principal *server_out)
 {
     kadm5_ret_t code;
     krb5_ccache ccache = NULL;
+    krb5_principal cprinc;
+    char svcbuf[BUFSIZ], *service, *host, *svcname, *save;
 
     *server_out = NULL;
+
+    /*
+     * Convert the RPCSEC_GSS version to the host based version as this
+     * is what gic expects.
+     */
+    if ((svcname = strdup(svcname_in)) == NULL) {
+	code = ENOMEM;
+	goto error;
+    }
+    if ((service = strtok_r(svcname, "@", &save)) != NULL) {
+	if ((host = strtok_r(NULL, "@", &save)) != NULL) {
+	    char *str = NULL;
+	    /*
+	     * We want the canonical name here, via sname_to_principal.
+	     */
+	    code = krb5_sname_to_principal(handle->context, host, service,
+		KRB5_NT_SRV_HST, &cprinc);
+	    if (code) {
+		free(svcname);
+		goto error;
+	    }
+	    code = krb5_unparse_name_flags(handle->context, cprinc,
+		KRB5_PRINCIPAL_UNPARSE_NO_REALM, &str);
+	    krb5_free_principal(handle->context, cprinc);
+	    if (code) {
+		free(svcname);
+		goto error;
+	    }
+	    (void) strncpy(svcbuf, str, sizeof(svcbuf));
+	    krb5_free_unparsed_name(handle->context, str);
+	}
+    } else {
+	strncpy(svcbuf, svcname, sizeof(svcbuf));
+	svcbuf[sizeof(svcname)-1] = '\0';
+    }
+    free(svcname);
 
     /*
      * Acquire a service ticket for svcname@realm for client, using password
@@ -700,7 +740,7 @@ get_init_creds(kadm5_server_handle_t handle, krb5_principal client,
     }
     handle->lhandle->cache_name = handle->cache_name;
 
-    code = gic_iter(handle, init_type, ccache, client, pass, svcname, realm,
+    code = gic_iter(handle, init_type, ccache, client, pass, svcbuf, realm,
                     server_out);
     /* Improved error messages */
     if (code == KRB5KRB_AP_ERR_BAD_INTEGRITY) code = KADM5_BAD_PASSWORD;
