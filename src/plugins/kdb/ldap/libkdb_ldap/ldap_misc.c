@@ -361,6 +361,17 @@ krb5_ldap_read_server_params(krb5_context context, char *conf_section,
                                   &ldap_context->service_password_file);
         if (ret)
             return ret;
+
+        if (ldap_context->service_password_file == NULL) {
+            ret = profile_get_string (context->profile, KDB_MODULE_DEF_SECTION,
+                                     KRB5_CONF_LDAP_SERVICE_PASSWORD_FILE,
+                                     NULL,
+                                     DEF_SERVICE_PASSWD_FILE,
+                                     &ldap_context->service_password_file);
+
+            if (ret)
+                return ret;
+        }
     }
 
     if (ldap_context->sasl_mech == NULL) {

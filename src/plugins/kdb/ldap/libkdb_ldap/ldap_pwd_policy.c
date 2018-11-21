@@ -461,7 +461,8 @@ krb5_ldap_iterate_password_policy(krb5_context context, char *match_expr,
     }
 
 cleanup:
-    free(entry);
+    if (st && entry)
+        krb5_db_free_policy(context, entry);
     free(policy);
     ldap_msgfree(result);
     krb5_ldap_put_handle_to_pool(ldap_context, ldap_server_handle);
