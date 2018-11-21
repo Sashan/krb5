@@ -73,6 +73,94 @@ char *strchr();
 #include <netinet/in.h>
 #include <netdb.h>
 
+#include <sys/types.h>
+#include <arpa/nameser.h>
+#include <resolv.h>
+
+int
+resolve_dns(char *hostname)
+{
+    unsigned char answer[NS_MAXMSG], *ansp = NULL, *end;
+    char name[NS_MAXDNAME];
+    int anslen, len = 0, nq, na, hostlen, found = 0, type, class, ttl, size;
+    struct __res_state stat;
+    HEADER *h;
+
+    (void) strncpy(name, hostname, NS_MAXDNAME);
+
+    (void) memset(&stat, 0, sizeof (stat));
+    if (res_ninit(&stat) == -1)
+	return 1;
+    anslen = sizeof (answer);
+
+    len = res_nsearch(&stat, name, C_IN, T_A, answer, anslen);
+    if (len < sizeof (HEADER)) {
+	res_ndestroy(&stat);
+	return 2;
+    }
+
+    ansp = answer;
+    end = ansp + anslen;
+
+    h = (HEADER *)answer;
+    nq = ntohs(h->qdcount);
+    na = ntohs(h->ancount);
+    ansp += HFIXEDSZ;
+
+    if (nq != 1 || na < 1) {
+	res_ndestroy(&stat);
+	return 3;
+    }
+    
+    hostlen = sizeof (name);
+    len = dn_expand(answer, end, ansp, name, hostlen);
+    if (len < 0) {
+	res_ndestroy(&stat);
+	return 4;
+    }
+
+    ansp += len + QFIXEDSZ;
+
+    if (ansp > end) {
+	res_ndestroy(&stat);
+	return 5;
+    }
+
+    while (na-- > 0 && ansp < end) {
+	len = dn_expand(answer, end, ansp, name, hostlen);
+
+	if (len < 0)
+	    continue;
+
+	ansp += len;			/* name */
+	NS_GET16(type, ansp);		/* type */
+	NS_GET16(class, ansp);		/* class */
+	NS_GET32(ttl, ansp);		/* ttl */
+	NS_GET16(size, ansp);		/* size */
+
+	if ((ansp + size) > end) {
+	    res_ndestroy(&stat);
+	    return 6;
+	}
+
+	ansp += len;
+	if (type == T_A && class == C_IN) {
+	    found = 1;
+	    break;
+	}
+    }
+
+    if (found != 1) {
+	res_ndestroy(&stat);
+	return 7;
+    }
+
+    (void) printf("%s\n", name);
+    res_ndestroy(&stat);
+
+    return 0;
+}
+
 int
 main(argc, argv)
     int argc;
@@ -82,14 +170,16 @@ main(argc, argv)
     char *ptr, *fqdn;
     struct in_addr addrcopy;
     struct hostent *host;
-    int quiet = 0;
+    int ret, quiet = 0, dns = 0;
 
     argc--; argv++;
     while (argc) {
         if ((strcmp(*argv, "--quiet") == 0) ||
             (strcmp(*argv, "-q") == 0)) {
             quiet++;
-        } else
+        } else if (strcmp(*argv, "-d") == 0)
+	    dns++;
+	else
             break;
         argc--; argv++;
     }
@@ -104,6 +194,16 @@ main(argc, argv)
     }
 
     myname[MAXHOSTNAMELEN] = '\0';  /* for safety */
+
+    if (dns) {
+	if (ret = resolve_dns(myname)) {
+	    fprintf(stderr,
+		"Could not resolve hostname ('%s') through DNS - fatal: %d\n",
+                myname, ret);
+	    exit(2);
+	}
+        exit(0);
+    }
 
     /* Look up the address... */
     if (!quiet)

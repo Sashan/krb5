@@ -14,7 +14,7 @@ proc get_hostname { } {
 	return 1
     }
 
-    catch "exec $RESOLVE -q >myname" exec_output
+    catch "exec $RESOLVE -d >myname" exec_output
     if ![string match "" $exec_output] {
 	send_log "$exec_output\n"
 	verbose $exec_output
