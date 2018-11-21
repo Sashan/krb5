@@ -140,6 +140,15 @@ copy_initiator_creds(OM_uint32 *minor_status,
             major_status = GSS_S_FAILURE;
             goto cleanup;
         }
+        if (overwrite_cred) {
+            code = krb5_cc_initialize(context, ccache,
+                                      kcred->name->princ);
+            if (code != 0) {
+                *minor_status = code;
+                major_status = GSS_S_CRED_UNAVAIL;
+                goto cleanup;
+            }
+        }
     }
 
     code = krb5_cc_copy_creds(context, kcred->ccache, ccache);
