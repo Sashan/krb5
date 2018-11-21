@@ -2661,16 +2661,21 @@ client_create_dh(krb5_context context,
                  pkinit_req_crypto_context cryptoctx,
                  pkinit_identity_crypto_context id_cryptoctx,
                  int dh_size,
-                 unsigned char **dh_params,
-                 unsigned int *dh_params_len,
-                 unsigned char **dh_pubkey,
-                 unsigned int *dh_pubkey_len)
+                 unsigned char **dh_params_out,
+                 unsigned int *dh_params_len_out,
+                 unsigned char **dh_pubkey_out,
+                 unsigned int *dh_pubkey_len_out)
 {
     krb5_error_code retval = KRB5KDC_ERR_PREAUTH_FAILED;
     unsigned char *buf = NULL;
     int dh_err = 0;
     ASN1_INTEGER *pub_key = NULL;
     const BIGNUM *pubkey_bn, *p, *q, *g;
+    unsigned char *dh_params = NULL, *dh_pubkey = NULL;
+    unsigned int dh_params_len, dh_pubkey_len;
+
+    *dh_params_out = *dh_pubkey_out = NULL;
+    *dh_params_len_out = *dh_pubkey_len_out = 0;
 
     if (cryptoctx->dh == NULL) {
         if (dh_size == 1024)
@@ -2714,7 +2719,7 @@ client_create_dh(krb5_context context,
      * however, PKINIT requires RFC3279 encoding and openssl does pkcs#3.
      */
     DH_get0_pqg(cryptoctx->dh, &p, &q, &g);
-    retval = pkinit_encode_dh_params(p, g, q, dh_params, dh_params_len);
+    retval = pkinit_encode_dh_params(p, g, q, &dh_params, &dh_params_len);
     if (retval)
         goto cleanup;
 
@@ -2729,30 +2734,30 @@ client_create_dh(krb5_context context,
         retval = ENOMEM;
         goto cleanup;
     }
-    *dh_pubkey_len = i2d_ASN1_INTEGER(pub_key, NULL);
-    if ((buf = *dh_pubkey = malloc(*dh_pubkey_len)) == NULL) {
-        retval  = ENOMEM;
+    dh_pubkey_len = i2d_ASN1_INTEGER(pub_key, NULL);
+    buf = dh_pubkey = malloc(dh_pubkey_len);
+    if (dh_pubkey == NULL) {
+        retval = ENOMEM;
         goto cleanup;
     }
     i2d_ASN1_INTEGER(pub_key, &buf);
 
-    if (pub_key != NULL)
-        ASN1_INTEGER_free(pub_key);
+    *dh_params_out = dh_params;
+    *dh_params_len_out = dh_params_len;
+    *dh_pubkey_out = dh_pubkey;
+    *dh_pubkey_len_out = dh_pubkey_len;
+    dh_params = dh_pubkey = NULL;
 
     retval = 0;
-    return retval;
 
 cleanup:
-    if (cryptoctx->dh != NULL)
+    if (retval) {
         DH_free(cryptoctx->dh);
-    cryptoctx->dh = NULL;
-    free(*dh_params);
-    *dh_params = NULL;
-    free(*dh_pubkey);
-    *dh_pubkey = NULL;
-    if (pub_key != NULL)
-        ASN1_INTEGER_free(pub_key);
-
+        cryptoctx->dh = NULL;
+    }
+    free(dh_params);
+    free(dh_pubkey);
+    ASN1_INTEGER_free(pub_key);
     return retval;
 }
 
@@ -2763,16 +2768,22 @@ client_process_dh(krb5_context context,
                   pkinit_identity_crypto_context id_cryptoctx,
                   unsigned char *subjectPublicKey_data,
                   unsigned int subjectPublicKey_length,
-                  unsigned char **client_key,
-                  unsigned int *client_key_len)
+                  unsigned char **client_key_out,
+                  unsigned int *client_key_len_out)
 {
     krb5_error_code retval = KRB5KDC_ERR_PREAUTH_FAILED;
     BIGNUM *server_pub_key = NULL;
     ASN1_INTEGER *pub_key = NULL;
+    unsigned char *client_key = NULL;
+    unsigned int client_key_len;
     const unsigned char *p = NULL;
 
-    *client_key_len = DH_size(cryptoctx->dh);
-    if ((*client_key = malloc(*client_key_len)) == NULL) {
+    *client_key_out = NULL;
+    *client_key_len_out = 0;
+
+    client_key_len = DH_size(cryptoctx->dh);
+    client_key = malloc(client_key_len);
+    if (client_key == NULL) {
         retval = ENOMEM;
         goto cleanup;
     }
@@ -2783,27 +2794,23 @@ client_process_dh(krb5_context context,
     if ((server_pub_key = ASN1_INTEGER_to_BN(pub_key, NULL)) == NULL)
         goto cleanup;
 
-    compute_dh(*client_key, *client_key_len, server_pub_key, cryptoctx->dh);
+    compute_dh(client_key, client_key_len, server_pub_key, cryptoctx->dh);
 #ifdef DEBUG_DH
     print_pubkey(server_pub_key, "server's pub_key=");
-    pkiDebug("client computed key (%d)= ", *client_key_len);
-    print_buffer(*client_key, *client_key_len);
+    pkiDebug("client computed key (%d)= ", client_key_len);
+    print_buffer(client_key, client_key_len);
 #endif
 
-    retval = 0;
-    if (server_pub_key != NULL)
-        BN_free(server_pub_key);
-    if (pub_key != NULL)
-        ASN1_INTEGER_free(pub_key);
+    *client_key_out = client_key;
+    *client_key_len_out = client_key_len;
+    client_key = NULL;
 
-    return retval;
+    retval = 0;
 
 cleanup:
-    free(*client_key);
-    *client_key = NULL;
-    if (pub_key != NULL)
-        ASN1_INTEGER_free(pub_key);
-
+    BN_free(server_pub_key);
+    ASN1_INTEGER_free(pub_key);
+    free(client_key);
     return retval;
 }
 
