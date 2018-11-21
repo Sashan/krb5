@@ -67,6 +67,7 @@ STLIBOBJS= \
 	kerrs.o		\
 	kfree.o		\
 	libdef_parse.o	\
+	missing_interfaces.o	\
 	mk_cred.o	\
 	mk_error.o	\
 	mk_priv.o	\
@@ -87,6 +88,7 @@ STLIBOBJS= \
 	preauth_pkinit.o	\
 	preauth_sam2.o	\
 	princ_comp.o	\
+	privacy_allowed.o \
 	privsafe.o	\
 	random_str.o	\
 	rd_cred.o	\
@@ -179,6 +181,7 @@ OBJS=	$(OUTPRE)addr_comp.$(OBJEXT)	\
 	$(OUTPRE)kerrs.$(OBJEXT)	\
 	$(OUTPRE)kfree.$(OBJEXT)	\
 	$(OUTPRE)libdef_parse.$(OBJEXT)	\
+	$(OUTPRE)missing_interfaces.$(OBJEXT) \
 	$(OUTPRE)mk_cred.$(OBJEXT)	\
 	$(OUTPRE)mk_error.$(OBJEXT)	\
 	$(OUTPRE)mk_priv.$(OBJEXT)	\
@@ -199,6 +202,7 @@ OBJS=	$(OUTPRE)addr_comp.$(OBJEXT)	\
 	$(OUTPRE)preauth_pkinit.$(OBJEXT)	\
 	$(OUTPRE)preauth_sam2.$(OBJEXT)	\
 	$(OUTPRE)princ_comp.$(OBJEXT)	\
+	$(OUTPRE)privacy_allowed.$(OBJEXT) \
 	$(OUTPRE)privsafe.$(OBJEXT)	\
 	$(OUTPRE)random_str.$(OBJEXT)	\
 	$(OUTPRE)rd_cred.$(OBJEXT)	\
@@ -291,6 +295,7 @@ SRCS=	$(srcdir)/addr_comp.c	\
 	$(srcdir)/kerrs.c	\
 	$(srcdir)/kfree.c	\
 	$(srcdir)/libdef_parse.c \
+	$(srcdir)/missing_interfaces.c \
 	$(srcdir)/mk_cred.c	\
 	$(srcdir)/mk_error.c	\
 	$(srcdir)/mk_priv.c	\
@@ -311,6 +316,7 @@ SRCS=	$(srcdir)/addr_comp.c	\
 	$(srcdir)/preauth_pkinit.c	\
 	$(srcdir)/preauth_sam2.c	\
 	$(srcdir)/princ_comp.c	\
+	$(srcdir)/privacy_allowed.c	\
 	$(srcdir)/privsafe.c	\
 	$(srcdir)/random_str.c	\
 	$(srcdir)/rd_cred.c	\

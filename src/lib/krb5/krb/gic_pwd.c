@@ -512,6 +512,26 @@ cleanup:
 }
 
 /*
+ * this is for Solaris 10 compatibility
+ */
+krb5_error_code KRB5_CALLCONV
+__krb5_get_init_creds_password(krb5_context context,
+                             krb5_creds *creds,
+                             krb5_principal client,
+                             const char *password,
+                             krb5_prompter_fct prompter,
+                             void *data,
+                             krb5_deltat start_time,
+                             const char *in_tkt_service,
+                             krb5_get_init_creds_opt *options,
+			     krb5_kdc_rep **ptr_as_reply)
+{
+	return (k5_get_init_creds_password(context, creds, client,
+	    password, prompter, data, start_time, in_tkt_service,
+	    options, ptr_as_reply));
+}
+
+/*
   Rewrites get_in_tkt in terms of newer get_init_creds API.
   Attempts to get an initial ticket for creds->client to use server
   creds->server, (realm is taken from creds->client), with options

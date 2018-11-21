@@ -1,0 +1,115 @@
+mydir=lib$(S)mech_krb5
+BUILDTOP=$(REL)..$(S)..
+LOCALINCLUDES = -I$(srcdir)/ccache -I$(srcdir)/keytab -I$(srcdir)/rcache -I$(srcdir)/os -I$(srcdir)/unicode -I$(srcdir)/../crypto/builtin/
+
+LIBCRYPTO=../crypto
+LIBKRB=../krb5
+LIBKADM=../kadm5
+
+SUBDIRS=	$(LIBCRYPTO)/$(CRYPTO_IMPL)/enc_provider	\
+		$(LIBCRYPTO)/$(CRYPTO_IMPL)/hash_provider	\
+		$(LIBCRYPTO)/$(CRYPTO_IMPL)/md4			\
+		$(LIBCRYPTO)/$(CRYPTO_IMPL)/md5			\
+		$(LIBCRYPTO)/$(CRYPTO_IMPL)/sha1		\
+		$(LIBCRYPTO)/$(CRYPTO_IMPL)/aes			\
+		$(LIBCRYPTO)/$(CRYPTO_IMPL)/camellia		\
+		$(LIBCRYPTO)/$(CRYPTO_IMPL)			\
+		$(LIBKRB)/error_tables		\
+		$(LIBKRB)/asn.1 		\
+		$(LIBKRB)/ccache 		\
+		$(LIBKRB)/keytab		\
+		$(LIBKRB)/krb			\
+		$(LIBKRB)/os			\
+		$(LIBKRB)/rcache		\
+		$(LIBKRB)/unicode		\
+		$(LIBKRB)/posix			\
+		$(LIBKADM)			\
+		$(LIBKADM)/clnt			\
+		$(BUILDTOP)/util/profile	\
+		$(BUILDTOP)/util/et
+
+LIBBASE=mech_krb5
+LIBMAJOR=3
+LIBMINOR=1
+LIBINITFUNC=cryptoint_initialize_library 	\
+	profile_library_initializer krb5int_lib_init
+LIBFINIFUNC=cryptoint_cleanup_library		\
+	profile_library_finalizer krb5int_lib_fini
+RELDIR=mech_krb5
+
+STOBJLISTS=$(LIBCRYPTO)/$(CRYPTO_IMPL)/enc_provider/OBJS.ST	\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/hash_provider/OBJS.ST	\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/md4/OBJS.ST 		\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/md5/OBJS.ST			\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/sha1/OBJS.ST		\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/sha2/OBJS.ST		\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/aes/OBJS.ST			\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/des/OBJS.ST			\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/camellia/OBJS.ST 		\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/OBJS.ST			\
+	$(LIBCRYPTO)/krb/OBJS.ST				\
+	$(LIBKRB)/OBJS.ST 					\
+	$(LIBKRB)/error_tables/OBJS.ST 				\
+	$(LIBKRB)/asn.1/OBJS.ST 				\
+	$(LIBKRB)/ccache/OBJS.ST 				\
+	$(LIBKRB)/keytab/OBJS.ST 				\
+	$(LIBKRB)/krb/OBJS.ST 					\
+	$(LIBKRB)/rcache/OBJS.ST 				\
+	$(LIBKRB)/unicode/OBJS.ST 				\
+	$(LIBKRB)/os/OBJS.ST 					\
+	$(LIBKRB)/posix/OBJS.ST 				\
+	$(LIBKADM)/OBJS.ST					\
+	$(LIBKADM)/clnt/OBJS.ST					\
+	$(BUILDTOP)/util/profile/OBJS.ST			\
+	$(BUILDTOP)/util/et/OBJS.ST
+
+SUBDIROBJLISTS=$(LIBCRYPTO)/$(CRYPTO_IMPL)/enc_provider/OBJS.ST	\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/hash_provider/OBJS.ST	\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/md4/OBJS.ST			\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/md5/OBJS.ST			\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/sha1/OBJS.ST		\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/sha2/OBJS.ST		\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/aes/OBJS.ST			\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/des/OBJS.ST			\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/camellia/OBJS.ST		\
+	$(LIBCRYPTO)/$(CRYPTO_IMPL)/OBJS.ST			\
+	$(LIBCRYPTO)/krb/OBJS.ST				\
+	$(LIBKRB)/OBJS.ST 					\
+	$(LIBKRB)/error_tables/OBJS.ST 				\
+	$(LIBKRB)/asn.1/OBJS.ST 				\
+	$(LIBKRB)/ccache/OBJS.ST 				\
+	$(LIBKRB)/keytab/OBJS.ST 				\
+	$(LIBKRB)/krb/OBJS.ST 					\
+	$(LIBKRB)/rcache/OBJS.ST 				\
+	$(LIBKRB)/unicode/OBJS.ST 				\
+	$(LIBKRB)/os/OBJS.ST 					\
+	$(LIBKRB)/posix/OBJS.ST 				\
+	$(LIBKADM)/OBJS.ST					\
+	$(LIBKADM)/clnt/OBJS.ST					\
+	$(BUILDTOP)/util/profile/OBJS.ST			\
+	$(BUILDTOP)/util/et/OBJS.ST
+
+# No dependencies.  Record places to find this shared object if the target
+# link editor and loader support it.
+DEPLIBS=
+MECH_KRB5_LIBS=@CRYPTO_IMPL_LIBS@ @GEN_LIB@
+
+SHLIB_EXPLIBS= $(SUPPORT_LIB) $(MECH_KRB5_LIBS) $(LIBS)
+SHLIB_EXPDEPLIBS= $(SUPPORT_DEPLIB)
+SHLIB_LDFLAGS= $(LDFLAGS) @SHLIB_RPATH_DIRS@
+
+##DOS##LIBNAME=$(OUTPRE)crypto.lib
+##DOS##OBJFILEDEP=$(OUTPRE)krb.lst $(OUTPRE)aes.lst $(OUTPRE)enc_provider.lst $(OUTPRE)des.lst $(OUTPRE)md5.lst $(OUTPRE)camellia.lst $(OUTPRE)md4.lst $(OUTPRE)hash_provider.lst $(OUTPRE)sha2.lst $(OUTPRE)sha1.lst $(OUTPRE)builtin.lst
+##DOS##OBJFILELIST=@$(OUTPRE)krb.lst @$(OUTPRE)aes.lst @$(OUTPRE)enc_provider.lst @$(OUTPRE)des.lst @$(OUTPRE)md5.lst @$(OUTPRE)camellia.lst @$(OUTPRE)md4.lst @$(OUTPRE)hash_provider.lst @$(OUTPRE)sha2.lst @$(OUTPRE)sha1.lst @$(OUTPRE)builtin.lst
+
+all-unix: all-liblinks
+install-unix: install-libs
+
+
+# all-unix:
+# install-unix:
+
+clean-unix:: clean-liblinks clean-libs clean-libobjs
+
+@lib_frag@
+@libobj_frag@
