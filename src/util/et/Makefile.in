@@ -111,13 +111,17 @@ check-windows: $(OUTPRE)test_et$(EXEEXT)
 	path
 	$(OUTPRE)test_et$(EXEEXT)
 
-install-unix: compile_et compile_et.1
-	$(INSTALL) compile_et $(DESTDIR)$(bindir)/compile_et
-	test -d $(DESTDIR)$(mydatadir) || mkdir $(DESTDIR)$(mydatadir)
-	$(INSTALL_DATA) $(srcdir)/et_c.awk $(DESTDIR)$(mydatadir)
-	$(INSTALL_DATA) $(srcdir)/et_h.awk $(DESTDIR)$(mydatadir)
-	$(INSTALL_DATA) $(srcdir)/compile_et.1 $(DESTDIR)$(CLIENT_MANDIR)/compile_et.1
-
+##
+## We don't ship compile_et tool on Solaris 10.
+## tool is needed to compile/build error tables.
+##
+#install-unix: compile_et compile_et.1
+#	$(INSTALL) compile_et $(DESTDIR)$(bindir)/compile_et
+#	test -d $(DESTDIR)$(mydatadir) || mkdir $(DESTDIR)$(mydatadir)
+#	$(INSTALL_DATA) $(srcdir)/et_c.awk $(DESTDIR)$(mydatadir)
+#	$(INSTALL_DATA) $(srcdir)/et_h.awk $(DESTDIR)$(mydatadir)
+#	$(INSTALL_DATA) $(srcdir)/compile_et.1 $(DESTDIR)$(CLIENT_MANDIR)/compile_et.1
+#
 
 install-headers: compile_et
 

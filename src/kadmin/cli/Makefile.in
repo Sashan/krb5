@@ -21,10 +21,14 @@ $(PROG): $(KADMIN_OBJS) $(SS_DEPLIB) $(KADMCLNT_DEPLIBS) $(KRB5_BASE_DEPLIBS)
 
 kadmin_ct.o: kadmin_ct.c
 
+#
+# on Solaris 10 we ship kadmin to usr/sbin
+# k5srvutil is also delivered to usr/sbin on S10
+#
 install:
 	$(INSTALL_PROGRAM) $(PROG).local ${DESTDIR}$(ADMIN_BINDIR)/$(PROG).local
-	$(INSTALL_PROGRAM) $(PROG) ${DESTDIR}$(CLIENT_BINDIR)/$(PROG)
-	$(INSTALL_SCRIPT) $(srcdir)/k5srvutil.sh ${DESTDIR}$(CLIENT_BINDIR)/k5srvutil
+	$(INSTALL_PROGRAM) $(PROG) ${DESTDIR}$(ADMIN_BINDIR)/$(PROG)
+	$(INSTALL_SCRIPT) $(srcdir)/k5srvutil.sh ${DESTDIR}$(ADMIN_BINDIR)/k5srvutil
 
 generate-files-mac: kadmin_ct.c getdate.c
 
