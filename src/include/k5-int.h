@@ -2392,4 +2392,6 @@ void k5_change_error_message_code(krb5_context ctx, krb5_error_code oldcode,
 #define k5_prependmsg krb5_prepend_error_message
 #define k5_wrapmsg krb5_wrap_error_message
 
+uid_t krb5_getuid();
+
 #endif /* _KRB5_INT_H */
