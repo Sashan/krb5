@@ -27,10 +27,14 @@
  * IF IT HAS BEEN OR IS HEREAFTER ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGES.
  */
+/*
+ * Copyright (c) 2008, 2015, Oracle and/or its affiliates. All rights reserved.
+ */
 
 #ifndef _PKINIT_H
 #define _PKINIT_H
 
+#include <k5-int.h>
 #include <k5-platform.h>
 #include <krb5/krb5.h>
 #include <krb5/preauth_plugin.h>
@@ -42,7 +46,7 @@
 #ifndef WITHOUT_PKCS11
 #include "pkcs11.h"
 
-#define PKCS11_MODNAME "opensc-pkcs11.so"
+#define PKCS11_MODNAME "libpkcs11.so"
 #define PK_SIGLEN_GUESS 1000
 #define PK_NOSLOT 999999
 #endif
@@ -187,6 +191,7 @@ typedef struct _pkinit_identity_opts {
     char *token_label;
     char *cert_id_string;
     char *cert_label;
+    char *PIN;
 #endif
 } pkinit_identity_opts;
 
