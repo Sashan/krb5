@@ -447,7 +447,14 @@ static int open_db_and_mkey()
                                          0, &master_keyblock))) {
             com_err(progname, retval, _("while reading master key"));
             com_err(progname, 0, _("Warning: proceeding without master key"));
-            exit_status++;
+	    /*
+	     * Solaris Kerberos: We don't want to count as an error if for
+	     * instance the stash file is not present and we are trying to
+	     * automate propagation, which really doesn't need a master key to
+	     * do so.
+	     */
+	    if (retval != KRB5_KDB_CANTREAD_STORED)
+		exit_status++;
             return(0);
         }
     }
