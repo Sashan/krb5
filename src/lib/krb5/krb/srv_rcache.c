@@ -39,6 +39,7 @@ krb5_get_server_rcache(krb5_context context, const krb5_data *piece,
     krb5_error_code retval;
     unsigned int i;
     struct k5buf buf = EMPTY_K5BUF;
+    char *def_env;
 #ifdef HAVE_GETEUID
     unsigned long uid = geteuid();
 #endif
@@ -49,19 +50,30 @@ krb5_get_server_rcache(krb5_context context, const krb5_data *piece,
     cachetype = krb5_rc_default_type(context);
 
     k5_buf_init_dynamic(&buf);
-    k5_buf_add(&buf, cachetype);
-    k5_buf_add(&buf, ":");
-    for (i = 0; i < piece->length; i++) {
-        if (piece->data[i] == '-')
-            k5_buf_add(&buf, "--");
-        else if (!isvalidrcname((int) piece->data[i]))
-            k5_buf_add_fmt(&buf, "-%03o", piece->data[i]);
+    if ((def_env = krb5_rc_default_name(context)) != 0) {
+        /*
+         * We expect to have the fully qualified rcache name (<type>:<name>),
+         * so we populate the default type here if the type is missing.
+         */
+        if (strchr(def_env, ':') == NULL)
+            k5_buf_add_fmt(&buf, "%s:%s", cachetype, def_env);
         else
-            k5_buf_add_len(&buf, &piece->data[i], 1);
-    }
+            k5_buf_add(&buf, def_env);
+    } else {
+	k5_buf_add(&buf, cachetype);
+	k5_buf_add(&buf, ":");
+	for (i = 0; i < piece->length; i++) {
+	    if (piece->data[i] == '-')
+		k5_buf_add(&buf, "--");
+	    else if (!isvalidrcname((int) piece->data[i]))
+		k5_buf_add_fmt(&buf, "-%03o", piece->data[i]);
+	    else
+		k5_buf_add_len(&buf, &piece->data[i], 1);
+	}
 #ifdef HAVE_GETEUID
     k5_buf_add_fmt(&buf, "_%lu", uid);
 #endif
+    }
 
     if (k5_buf_status(&buf) != 0)
         return ENOMEM;
