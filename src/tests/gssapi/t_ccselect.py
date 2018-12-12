@@ -45,7 +45,14 @@ foobar = "foo.bar.krbtest.com"
 gssserver = 'h:host@' + foo
 gssserver2 = 'h:host@' + foo2
 gssserver_bar = 'h:host@' + foobar
-gsslocal = 'h:host@localhost'
+#
+# Solaris enforces DNS resolution (bypasses /etc/hosts). Therefore we need to
+# use '@localhost.' instead of 'localhost'. Without the terminating '.' DNS
+# returns FQDN in response to reverse look up. The FQDN name typically looks
+# like 'localhost.some.domain', which is (from krb point of view) different
+# to 'localhost'. Mismatch constitutes a failure (principal not found).
+#
+gsslocal = 'h:host@localhost.'
 
 # refserver specifies the target as a principal in the referral realm.
 # The principal won't be treated as a host principal by the
