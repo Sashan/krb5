@@ -8,6 +8,7 @@
 #define _MISC_H 1
 
 #include "net-server.h"         /* for krb5_fulladdr */
+#include "kadmind_audit.h"
 
 int
 setup_gss_names(struct svc_req *, gss_buffer_desc *,

@@ -168,4 +168,3 @@ $(OUTPRE)ipropd_svc.$(OBJEXT): $(BUILDTOP)/include/autoconf.h \
   $(top_srcdir)/include/kdb_log.h $(top_srcdir)/include/krb5.h \
   $(top_srcdir)/include/krb5/plugin.h $(top_srcdir)/include/net-server.h \
   $(top_srcdir)/lib/gssapi/krb5/gssapi_krb5.h auth.h \
-  ipropd_svc.c misc.h

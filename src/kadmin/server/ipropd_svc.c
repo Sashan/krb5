@@ -203,6 +203,9 @@ iprop_get_updates_1_svc(kdb_last_t *arg, struct svc_req *rqstp)
 	DPRINT("%s: PERMISSION DENIED: clprinc=`%s'\n\tsvcprinc=`%s'\n",
 		whoami, client_name, service_name);
 
+	audit_kadmind("Incremental updates", "null", client_name, service_name,
+	    "Unauthorized request", rqstp->rq_xprt, ret.ret);
+
 	krb5_klog_syslog(LOG_NOTICE, LOG_UNAUTH, whoami,
 			 client_name, service_name,
 			 client_addr(rqstp->rq_xprt));
@@ -228,6 +231,10 @@ iprop_get_updates_1_svc(kdb_last_t *arg, struct svc_req *rqstp)
 	   whoami, obuf,
 	   ((kret == 0) ? "success" : error_message(kret)),
 	   client_name, service_name);
+
+    audit_kadmind("Incremental updates", "null", client_name, service_name,
+	((kret == 0) ? "success" : (char *)error_message(kret)), rqstp->rq_xprt,
+	ret.ret);
 
     krb5_klog_syslog(LOG_NOTICE,
 		     _("Request: %s, %s, %s, client=%s, service=%s, addr=%s"),
@@ -345,6 +352,10 @@ ipropx_resync(uint32_t vers, struct svc_req *rqstp)
 	ret.ret = UPDATE_PERM_DENIED;
 
 	DPRINT("%s: Permission denied\n", whoami);
+
+	audit_kadmind("Full resync", "null", client_name, service_name,
+	    "Unauthorized request", rqstp->rq_xprt, ret.ret);
+
 	krb5_klog_syslog(LOG_NOTICE, LOG_UNAUTH, whoami,
 			 client_name, service_name,
 			 client_addr(rqstp->rq_xprt));
@@ -456,6 +467,10 @@ ipropx_resync(uint32_t vers, struct svc_req *rqstp)
 	DPRINT("%s: spawned resync process %d, client=%s, "
 		"service=%s, addr=%s\n", whoami, fret, client_name,
 		service_name, client_addr(rqstp->rq_xprt));
+
+	audit_kadmind("Full resync", "null", client_name, service_name,
+	    "success", rqstp->rq_xprt, ret.ret);
+
 	krb5_klog_syslog(LOG_NOTICE,
 			 _("Request: %s, spawned resync process %d, client=%s, service=%s, addr=%s"),
 			 whoami, fret,
