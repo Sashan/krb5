@@ -697,8 +697,8 @@ if {$RPC} {
     # re-extract the keytab so it is right
     exec rm $env(K5ROOT)/ovsec_adm.srvtab
     exec $env(MAKE_KEYTAB) -princ ovsec_adm/admin -princ ovsec_adm/changepw \
-	    -princ kadmin/admin -princ kadmin/changepw \
-	    $env(K5ROOT)/ovsec_adm.srvtab
+	    -princ kadmin/[exec $env(QUALNAME)] \
+	    -princ changepw/[exec $env(QUALNAME)] $env(K5ROOT)/ovsec_adm.srvtab
 }
 
 return ""

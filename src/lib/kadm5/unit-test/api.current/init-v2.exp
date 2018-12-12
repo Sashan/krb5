@@ -70,7 +70,7 @@ proc test102 {} {
 		[config_params {KADM5_CONFIG_ADMIN_SERVER} does.not.exist] \
 		$KADM5_STRUCT_VERSION $KADM5_API_VERSION_3 \
 		server_handle
-    } "CANT_RESOLVE"
+    } "KADM5_RPC_ERROR"
 }
 if {$RPC} test102
 
@@ -412,7 +412,7 @@ test117
     
 send "puts \$KADM5_ADMIN_SERVICE\n"
 expect {
-    -re "(\[a-zA-Z/@\]+)\n$prompt" {
+    -re "(\[a-zA-Z0-9/\\-.@\]+)\n$prompt" {
 	set KADM5_ADMIN_SERVICE $expect_out(1,string) 
     }
     default {
@@ -423,7 +423,7 @@ expect {
 
 send "puts \$KADM5_CHANGEPW_SERVICE\n"
 expect {
-    -re "(\[a-zA-Z/@\]+)\n$prompt" {
+    -re "(\[a-zA-Z0-9/\\-.@\]+)\n$prompt" {
 	set KADM5_CHANGEPW_SERVICE $expect_out(1,string) 
     }
     default {
@@ -434,10 +434,11 @@ expect {
 
 test "init 150"
 proc test150 {} {
-    global test KADM5_ADMIN_SERVICE
+    global test hostname
 
+    get_hostname
     kdestroy
-    kinit testuser notathena "-S $KADM5_ADMIN_SERVICE"
+    kinit testuser notathena "-S kadmin/$hostname"
     one_line_succeed_test {
 	kadm5_init_with_creds testuser null $KADM5_ADMIN_SERVICE \
 		null $KADM5_STRUCT_VERSION $KADM5_API_VERSION_3 \
@@ -449,10 +450,11 @@ if {$RPC} test150
 
 test "init 151"
 proc test151 {} {
-    global test KADM5_CHANGEPW_SERVICE
+    global test hostname
 
+    get_hostname
     kdestroy
-    kinit testuser notathena "-S $KADM5_CHANGEPW_SERVICE"
+    kinit testuser notathena "-S changepw/$hostname"
     one_line_succeed_test {
 	kadm5_init_with_creds testuser null $KADM5_CHANGEPW_SERVICE \
 		null $KADM5_STRUCT_VERSION $KADM5_API_VERSION_3 \

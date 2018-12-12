@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 
     kadm5_init_krb5_context(&context);
 
-    ret = kadm5_init(context, "admin/none", "admin", KADM5_ADMIN_SERVICE, NULL,
+    ret = kadm5_init(context, "admin/none", "admin", NULL, NULL,
                      KADM5_STRUCT_VERSION, KADM5_API_VERSION_4, NULL,
                      &server_handle);
     if(ret != KADM5_OK) {
