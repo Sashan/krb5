@@ -26,6 +26,8 @@
 
 #include "k5-int.h"
 #include "gssapiP_krb5.h"
+#include <syslog.h>
+#include <kerberosv5/private/ktwarn.h>
 
 static int
 has_unexpired_creds(krb5_gss_cred_id_t kcred,
@@ -71,6 +73,7 @@ copy_initiator_creds(OM_uint32 *minor_status,
     krb5_context context = NULL;
     krb5_ccache ccache = NULL;
     const char *ccache_name;
+    char *client_name = NULL;
 
     *minor_status = 0;
 
@@ -161,6 +164,17 @@ copy_initiator_creds(OM_uint32 *minor_status,
 
     *minor_status = 0;
     major_status = GSS_S_COMPLETE;
+
+    /* Alert ktkt_warnd(1M) */
+    major_status = krb5_unparse_name(context, kcred->name->princ, &client_name);
+    if (GSS_ERROR(major_status))
+        goto cleanup;
+    (void) kwarn_del_warning(client_name);
+    if (kwarn_add_warning(client_name, kcred->expire) != 0) {
+        syslog(LOG_AUTH|LOG_DEBUG, "store_cred: kwarn_add_warning"
+            " failed: ktkt_warnd(1M) down? ");
+    }
+    krb5_free_unparsed_name(context, client_name);
 
 cleanup:
     if (kcred != NULL)
