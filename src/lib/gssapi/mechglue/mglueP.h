@@ -14,11 +14,13 @@
 #include "mechglue.h"
 #include "gssapiP_generic.h"
 
+#ifndef g_OID_copy
 #define	g_OID_copy(o1, o2)					\
 do {								\
 	memcpy((o1)->elements, (o2)->elements, (o2)->length);	\
 	(o1)->length = (o2)->length;				\
 } while (0)
+#endif
 
 /*
  * Array of context IDs typed by mechanism OID
