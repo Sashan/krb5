@@ -33,6 +33,11 @@ kadm5_init_krb5_context
 kadm5_init_with_creds
 kadm5_init_with_password
 kadm5_init_with_skey
+kadm5_init_mm
+kadm5_init_anonymous_mm
+kadm5_init_with_creds_mm
+kadm5_init_with_password_mm
+kadm5_init_with_skey_mm
 kadm5_lock
 kadm5_modify_policy
 kadm5_modify_principal
