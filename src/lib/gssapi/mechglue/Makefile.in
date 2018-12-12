@@ -66,6 +66,7 @@ SRCS = \
 	$(srcdir)/g_sign.c \
 	$(srcdir)/g_store_cred.c \
 	$(srcdir)/g_unseal.c \
+	$(srcdir)/g_utils.c \
 	$(srcdir)/g_unwrap_aead.c \
 	$(srcdir)/g_unwrap_iov.c \
 	$(srcdir)/g_verify.c \
@@ -130,6 +131,7 @@ OBJS = \
 	$(OUTPRE)g_sign.$(OBJEXT) \
 	$(OUTPRE)g_store_cred.$(OBJEXT) \
 	$(OUTPRE)g_unseal.$(OBJEXT) \
+	$(OUTPRE)g_utils.$(OBJEXT) \
 	$(OUTPRE)g_unwrap_aead.$(OBJEXT) \
 	$(OUTPRE)g_unwrap_iov.$(OBJEXT) \
 	$(OUTPRE)g_verify.$(OBJEXT) \
@@ -194,6 +196,7 @@ STLIBOBJS = \
 	g_sign.o \
 	g_store_cred.o \
 	g_unseal.o \
+	g_utils.o \
 	g_unwrap_aead.o \
 	g_unwrap_iov.o \
 	g_verify.o \
