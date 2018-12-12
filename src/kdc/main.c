@@ -202,7 +202,7 @@ init_realm(kdc_realm_t * rdp, krb5_pointer aprof, char *realm,
            char *def_mpname, krb5_enctype def_enctype, char *def_udp_listen,
            char *def_tcp_listen, krb5_boolean def_manual,
            krb5_boolean def_restrict_anon, char **db_args, char *no_referral,
-           char *hostbased)
+           char *hostbased, krb5_int32 def_max_tcp)
 {
     krb5_error_code     kret;
     krb5_boolean        manual;
@@ -269,6 +269,8 @@ init_realm(kdc_realm_t * rdp, krb5_pointer aprof, char *realm,
         kret = ENOMEM;
         goto whoops;
     }
+    rdp->realm_max_tcp = def_max_tcp;
+
     /* Handle stash file */
     hierarchy[2] = KRB5_CONF_KEY_STASH_FILE;
     if (krb5_aprof_get_string(aprof, hierarchy, TRUE, &rdp->realm_stash))
@@ -624,6 +626,7 @@ initialize_realms(krb5_context kcontext, int argc, char **argv,
     char                *hostbased = NULL;
     int                  db_args_size = 0;
     char                **db_args = NULL;
+    krb5_int32		default_max_tcp;
 
     extern char *optarg;
 
@@ -641,6 +644,13 @@ initialize_realms(krb5_context kcontext, int argc, char **argv,
             hierarchy[1] = KRB5_CONF_KDC_TCP_PORTS;
             if (krb5_aprof_get_string(aprof, hierarchy, TRUE, &def_tcp_listen))
                 def_tcp_listen = NULL;
+        }
+	hierarchy[1] = KRB5_CONF_MAX_TCP_CONNECTIONS;
+        if (krb5_aprof_get_int32(aprof, hierarchy, TRUE,
+                                 &default_max_tcp)) {
+            default_max_tcp = DEFAULT_KDC_TCP_CONNECTIONS;
+        } else if (default_max_tcp < MIN_KDC_TCP_CONNECTIONS) {
+            default_max_tcp = DEFAULT_KDC_TCP_CONNECTIONS;
         }
         hierarchy[1] = KRB5_CONF_KDC_MAX_DGRAM_REPLY_SIZE;
         if (krb5_aprof_get_int32(aprof, hierarchy, TRUE, &max_dgram_reply_size))
@@ -709,7 +719,8 @@ initialize_realms(krb5_context kcontext, int argc, char **argv,
                                         menctype, def_udp_listen,
                                         def_tcp_listen, manual,
                                         def_restrict_anon, db_args,
-                                        no_referral, hostbased);
+                                        no_referral, hostbased,
+					default_max_tcp);
                     if (retval) {
                         fprintf(stderr, _("%s: cannot initialize realm %s - "
                                           "see log file for details\n"),
@@ -822,7 +833,7 @@ initialize_realms(krb5_context kcontext, int argc, char **argv,
             retval = init_realm(rdatap, aprof, lrealm, mkey_name, menctype,
                                 def_udp_listen, def_tcp_listen, manual,
                                 def_restrict_anon, db_args, no_referral,
-                                hostbased);
+                                hostbased, default_max_tcp);
             if (retval) {
                 fprintf(stderr, _("%s: cannot initialize realm %s - see log "
                                   "file for details\n"), argv[0], lrealm);
@@ -978,6 +989,13 @@ int main(int argc, char **argv)
         finish_realms();
         return 1;
     }
+
+    /*
+     * Sashan:
+     * Not sure about this line below. I'd like to know where
+     * does it come from.
+     */
+    setup_kdc_options(shandle.kdc_realmlist[0]->realm_max_tcp);
 
     /* Add each realm's listener addresses to the loop. */
     for (i = 0; i < shandle.kdc_numrealms; i++) {
