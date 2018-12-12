@@ -139,15 +139,16 @@ if '97:' in out:
     fail('auth indicators seen in anonymous PKINIT ticket')
 
 # Test anonymous kadmin.
-mark('anonymous kadmin')
-f = open(os.path.join(realm.testdir, 'acl'), 'a')
-f.write('WELLKNOWN/ANONYMOUS@WELLKNOWN:ANONYMOUS a *')
-f.close()
-realm.start_kadmind()
-realm.run([kadmin, '-n', 'addprinc', '-pw', 'test', 'testadd'])
-realm.run([kadmin, '-n', 'getprinc', 'testadd'], expected_code=1,
-          expected_msg="Operation requires ``get'' privilege")
-realm.stop_kadmind()
+#mark('anonymous kadmin')
+#f = open(os.path.join(realm.testdir, 'acl'), 'a')
+#f.write('WELLKNOWN/ANONYMOUS@WELLKNOWN:ANONYMOUS a *')
+#f.close()
+#realm.start_kadmind()
+#realm.run([kadmin, '-n', 'addprinc', '-pw', 'test', 'testadd'])
+#realm.run([kadmin, '-n', 'getprinc', 'testadd'], expected_code=1,
+#          expected_msg="Operation requires ``get'' privilege")
+#realm.stop_kadmind()
+sys.stderr.write("Anonymous pkinit support in kadmin disabled, skipping...\n");
 
 # Test with anonymous restricted; FAST should work but kvno should fail.
 mark('anonymous restricted')
