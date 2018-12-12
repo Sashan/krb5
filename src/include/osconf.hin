@@ -40,6 +40,8 @@
 # include <TargetConditionals.h>
 #endif
 
+#define	KRB5_DIR		"/etc/krb5"
+
 #if defined(_WIN32)
 #define DEFAULT_PROFILE_FILENAME "krb5.ini"
 #else /* !_WINDOWS */
@@ -50,7 +52,7 @@
 #define KDB5_PLUGIN_BUNDLE_DIR       "/System/Library/KerberosPlugins/KerberosDatabasePlugins"
 #define KRB5_AUTHDATA_PLUGIN_BUNDLE_DIR  "/System/Library/KerberosPlugins/KerberosAuthDataPlugins"
 #else
-#define DEFAULT_SECURE_PROFILE_PATH     "/etc/krb5.conf@SYSCONFCONF"
+#define DEFAULT_SECURE_PROFILE_PATH     KRB5_DIR "/krb5.conf"
 #define DEFAULT_PROFILE_PATH        DEFAULT_SECURE_PROFILE_PATH
 #endif
 #endif /* _WINDOWS  */
@@ -69,7 +71,7 @@
 #define PLUGIN_EXT              "@DYNOBJEXT"
 #endif
 
-#define KDC_DIR                 "@LOCALSTATEDIR/krb5kdc"
+#define KDC_DIR                 "@LOCALSTATEDIR/krb5"
 #define KDC_RUN_DIR             "@RUNSTATEDIR/krb5kdc"
 #define DEFAULT_KDB_FILE        KDC_DIR "/principal"
 #define DEFAULT_KEYFILE_STUB    KDC_DIR "/.k5."
@@ -78,7 +80,7 @@
 #define DEFAULT_ADMIN_ACL       KDC_DIR "/kadm_old.acl"
 
 /* Location of KDC profile */
-#define DEFAULT_KDC_PROFILE     KDC_DIR "/kdc.conf"
+#define DEFAULT_KDC_PROFILE     KRB5_DIR "/kdc.conf"
 #define KDC_PROFILE_ENV         "KRB5_KDC_PROFILE"
 
 #if TARGET_OS_MAC
@@ -103,8 +105,8 @@
 /*
  * Defaults for the KADM5 admin system.
  */
-#define DEFAULT_KADM5_KEYTAB    KDC_DIR "/kadm5.keytab"
-#define DEFAULT_KADM5_ACL_FILE  KDC_DIR "/kadm5.acl"
+#define DEFAULT_KADM5_KEYTAB    KRB5_DIR "/kadm5.keytab"
+#define DEFAULT_KADM5_ACL_FILE  KRB5_DIR "/kadm5.acl"
 #define DEFAULT_KADM5_PORT      749 /* assigned by IANA */
 
 #define KRB5_DEFAULT_SUPPORTED_ENCTYPES                 \
@@ -113,7 +115,7 @@
 
 #define MAX_DGRAM_SIZE  65536
 
-#define RCTMPDIR        "@KRB5RCTMPDIR" /* directory to store replay caches */
+#define RCTMPDIR KDC_DIR "/rcache" /* directory to store replay caches */
 
 #define KRB5_PATH_TTY   "/dev/tty"
 #define KRB5_PATH_LOGIN "@SBINDIR/login.krb5"
@@ -130,7 +132,7 @@
 #define KPROPD_DEFAULT_KDB5_UTIL "@SBINDIR/kdb5_util"
 #define KPROPD_DEFAULT_KPROP "@SBINDIR/kprop"
 #define KPROPD_DEFAULT_KRB_DB DEFAULT_KDB_FILE
-#define KPROPD_ACL_FILE KDC_DIR "/kpropd.acl"
+#define KPROPD_ACL_FILE KRB5_DIR "/kpropd.acl"
 
 /*
  * GSS mechglue
