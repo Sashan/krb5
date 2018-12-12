@@ -66,6 +66,7 @@ krb5_expand_hostname(krb5_context context, const char *host,
 
     canonhost = host;
     if (context->dns_canonicalize_hostname) {
+#if 0 /* force DNS lookup */
         /* Try a forward lookup of the hostname. */
         memset(&hint, 0, sizeof(hint));
         hint.ai_flags = AI_CANONNAME;

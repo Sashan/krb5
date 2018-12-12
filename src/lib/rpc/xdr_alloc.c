@@ -35,18 +35,23 @@
  * Copyright 1993 OpenVision Technologies, Inc., All Rights Reserved.
  */
 
-#include <gssrpc/types.h>
-#include <gssrpc/xdr.h>
+#include <sys/types.h>
+#include <rpc/types.h>
+#include <rpc/xdr.h>
+#include <inttypes.h>
 #include "dyn.h"
 
 static bool_t	xdralloc_putlong(XDR *, long *);
-static bool_t	xdralloc_putbytes(XDR *, caddr_t, unsigned int);
+static bool_t	xdralloc_putbytes(XDR *, caddr_t, int);
 static unsigned int	xdralloc_getpos(XDR *);
 static rpc_inline_t *	xdralloc_inline(XDR *, int);
 static void	xdralloc_destroy(XDR *);
+static bool_t	xdralloc_putint32(XDR *, int32_t *);
 static bool_t	xdralloc_notsup_getlong(XDR *, long *);
-static bool_t	xdralloc_notsup_getbytes(XDR *, caddr_t, unsigned int);
+static bool_t	xdralloc_notsup_getbytes(XDR *, caddr_t, int);
 static bool_t	xdralloc_notsup_setpos(XDR *, unsigned int);
+static bool_t	xdralloc_notsup_getint32(XDR *, int32_t *);
+static bool_t	xdralloc_notsup_control(XDR *, int, void *);
 static struct	xdr_ops xdralloc_ops = {
      xdralloc_notsup_getlong,
      xdralloc_putlong,
@@ -56,6 +61,11 @@ static struct	xdr_ops xdralloc_ops = {
      xdralloc_notsup_setpos,
      xdralloc_inline,
      xdralloc_destroy,
+     xdralloc_notsup_control,
+#if defined(_LP64)
+     xdralloc_notsup_getint32,
+     xdralloc_putint32,
+#endif
 };
 
 /*
@@ -96,7 +106,12 @@ static bool_t xdralloc_putlong(
      XDR *xdrs,
      long *lp)
 {
-     int l = htonl((uint32_t) *lp); /* XXX need bounds checking */
+#if defined(_LP64)
+     if ((*lp > INT32_MAX) || (*lp < INT32_MIN))
+          return FALSE;
+#endif
+
+     int l = htonl((uint32_t) *lp);
 
      /* XXX assumes sizeof(int)==4 */
      if (DynInsert((DynObject) xdrs->x_private,
@@ -106,11 +121,33 @@ static bool_t xdralloc_putlong(
      return (TRUE);
 }
 
+#if defined(_LP64)
+static bool_t xdralloc_notsup_getint32(
+     register XDR *xdrs,
+     int32_t *lp)
+{
+     return FALSE;
+}
+
+static bool_t xdralloc_putint32(
+     register XDR *xdrs,
+     int32_t *lp)
+{
+     int l = htonl((uint32_t) *lp);
+
+     /* XXX assumes sizeof(int)==4 */
+     if (DynInsert((DynObject) xdrs->x_private,
+		   DynSize((DynObject) xdrs->x_private), &l,
+		   sizeof(int)) != DYN_OK)
+	  return FALSE;
+     return (TRUE);
+}
+#endif
 
 static bool_t xdralloc_notsup_getbytes(
      XDR *xdrs,
      caddr_t addr,
-     unsigned int len)
+     int len)
 {
      return FALSE;
 }
@@ -119,7 +156,7 @@ static bool_t xdralloc_notsup_getbytes(
 static bool_t xdralloc_putbytes(
      XDR *xdrs,
      caddr_t addr,
-     unsigned int len)
+     int len)
 {
      if (DynInsert((DynObject) xdrs->x_private,
 		   DynSize((DynObject) xdrs->x_private),
@@ -147,4 +184,11 @@ static rpc_inline_t *xdralloc_inline(
      int len)
 {
      return (rpc_inline_t *) 0;
+}
+
+static bool_t xdralloc_notsup_control(XDR *xdrs,
+     int request,
+     void *info)
+{
+     return FALSE;
 }

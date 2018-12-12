@@ -548,7 +548,7 @@ dump_ov_princ(krb5_context context, krb5_db_entry *entry, const char *name,
 
     fputc('\n', fp);
     free(princstr);
-    xdr_free(xdr_osa_princ_ent_rec, &adb);
+    xdr_free(xdr_osa_princ_ent_rec, (char *) &adb);
     return 0;
 }
 

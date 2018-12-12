@@ -139,7 +139,7 @@ int kadm5_create_magic_princs(kadm5_config_params *params,
 static int add_admin_princs(void *handle, krb5_context context, char *realm)
 {
     krb5_error_code ret = 0;
-    char *service_name = 0, *kiprop_name = 0, *canonhost = 0;
+    char *service_name = 0, *kiprop_name = 0, *canonhost = 0, *chpw_name = NULL;
     char localname[MAXHOSTNAMELEN];
 
     if (gethostname(localname, MAXHOSTNAMELEN)) {
@@ -153,6 +153,11 @@ static int add_admin_princs(void *handle, krb5_context context, char *realm)
         goto clean_and_exit;
     }
     if (asprintf(&service_name, "kadmin/%s", canonhost) < 0) {
+        ret = ENOMEM;
+        fprintf(stderr, _("Out of memory\n"));
+        goto clean_and_exit;
+    }
+    if (asprintf(&chpw_name, "changepw/%s", canonhost) < 0) {
         ret = ENOMEM;
         fprintf(stderr, _("Out of memory\n"));
         goto clean_and_exit;
@@ -171,11 +176,21 @@ static int add_admin_princs(void *handle, krb5_context context, char *realm)
         goto clean_and_exit;
 
     if ((ret = add_admin_princ(handle, context,
+                               chpw_name, realm,
+                               KRB5_KDB_DISALLOW_TGT_BASED |
+                               KRB5_KDB_PWCHANGE_SERVICE,
+                               ADMIN_LIFETIME)))
+        goto clean_and_exit;
+
+/* kadmin/admin unusable with Solaris rpcsec_gss */
+#if 0
+    if ((ret = add_admin_princ(handle, context,
                                KADM5_ADMIN_SERVICE, realm,
                                KRB5_KDB_DISALLOW_TGT_BASED |
                                KRB5_KDB_LOCKDOWN_KEYS,
                                ADMIN_LIFETIME)))
         goto clean_and_exit;
+#endif
 
     if ((ret = add_admin_princ(handle, context,
                                KADM5_CHANGEPW_SERVICE, realm,
@@ -191,6 +206,7 @@ clean_and_exit:
     krb5_free_string(context, canonhost);
     free(service_name);
     free(kiprop_name);
+    free(chpw_name);
 
     return ret;
 }

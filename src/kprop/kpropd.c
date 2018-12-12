@@ -611,13 +611,14 @@ full_resync(CLIENT *clnt)
 
     memset(&clnt_res, 0, sizeof(clnt_res));
 
-    status = clnt_call(clnt, IPROP_FULL_RESYNC_EXT, (xdrproc_t)xdr_u_int32,
-                       &vers, (xdrproc_t)xdr_kdb_fullresync_result_t,
-                       &clnt_res, full_resync_timeout);
+    status = clnt_call(clnt, IPROP_FULL_RESYNC_EXT, (xdrproc_t)xdr_u_int,
+                       (caddr_t)&vers, (xdrproc_t)xdr_kdb_fullresync_result_t,
+                       (caddr_t)&clnt_res, full_resync_timeout);
     if (status == RPC_PROCUNAVAIL) {
         status = clnt_call(clnt, IPROP_FULL_RESYNC, (xdrproc_t)xdr_void,
-                           &vers, (xdrproc_t)xdr_kdb_fullresync_result_t,
-                           &clnt_res, full_resync_timeout);
+                           (caddr_t)&vers,
+			   (xdrproc_t)xdr_kdb_fullresync_result_t,
+                           (caddr_t)&clnt_res, full_resync_timeout);
     }
 
     return (status == RPC_SUCCESS) ? &clnt_res : NULL;

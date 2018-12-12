@@ -7,12 +7,11 @@ LIBMAJOR=11
 LIBMINOR=0
 STOBJLISTS=../OBJS.ST OBJS.ST
 SHLIB_EXPDEPS=\
-	$(TOPLIBD)/libgssrpc$(SHLIBEXT) \
 	$(TOPLIBD)/libgssapi_krb5$(SHLIBEXT) \
 	$(TOPLIBD)/libkrb5$(SHLIBEXT) \
 	$(TOPLIBD)/libk5crypto$(SHLIBEXT) \
 	$(COM_ERR_DEPLIB) $(SUPPORT_LIBDEP)
-SHLIB_EXPLIBS=-lgssrpc -lgssapi_krb5 -lkrb5 -lk5crypto $(SUPPORT_LIB) -lcom_err $(LIBS)
+SHLIB_EXPLIBS= -lgssapi_krb5 -lkrb5 -lk5crypto $(SUPPORT_LIB) -lcom_err $(LIBS)
 RELDIR=kadm5/clnt
 
 ##DOSBUILDTOP = ..\..\..

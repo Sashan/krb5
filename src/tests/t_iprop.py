@@ -3,6 +3,14 @@ import re
 
 from k5test import *
 
+#
+# Solaris Kerberos
+#
+# We cannot run register iprop rpc program twice on one host and
+# hence we are not able to test hierarchical iprop on a single host.
+# This test has been modified to test 'flat' iprop only.
+#
+
 # Read lines from kpropd output until we are synchronized.  Error if
 # full_expected is true and we didn't see a full propagation or vice
 # versa.
@@ -117,45 +125,48 @@ conf = {'realms': {'$realm': {'iprop_enable': 'true',
 conf_rep1 = {'realms': {'$realm': {'iprop_replica_poll': '600',
                                    'iprop_logfile': '$testdir/ulog.replica1'}},
              'dbmodules': {'db': {'database_name': '$testdir/db.replica1'}}}
-conf_rep1m = {'realms': {'$realm': {'iprop_logfile': '$testdir/ulog.replica1',
-                                    'iprop_port': '$port8'}},
-              'dbmodules': {'db': {'database_name': '$testdir/db.replica1'}}}
-conf_rep2 = {'realms': {'$realm': {'iprop_replica_poll': '600',
-                                   'iprop_logfile': '$testdir/ulog.replica2',
-                                   'iprop_port': '$port8'}},
-             'dbmodules': {'db': {'database_name': '$testdir/db.replica2'}}}
+#conf_rep1m = {'realms': {'$realm': {'iprop_logfile': '$testdir/ulog.replica1',
+#                                    'iprop_port': '$port8'}},
+#              'dbmodules': {'db': {'database_name': '$testdir/db.replica1'}}}
+#conf_rep2 = {'realms': {'$realm': {'iprop_replica_poll': '600',
+#                                   'iprop_logfile': '$testdir/ulog.replica2',
+#                                   'iprop_port': '$port8'}},
+#             'dbmodules': {'db': {'database_name': '$testdir/db.replica2'}}}
 
 conf_foo = {'libdefaults': {'default_realm': 'FOO'},
             'domain_realm': {hostname: 'FOO'}}
-conf_rep3 = {'realms': {'$realm': {'iprop_replica_poll': '600',
-                                   'iprop_logfile': '$testdir/ulog.replica3',
-                                   'iprop_port': '$port8'},
-                        'FOO': {'iprop_logfile': '$testdir/ulog.replica3'}},
-            'dbmodules': {'db': {'database_name': '$testdir/db.replica3'}}}
+# line below was used in 1.16.1 on Solaris
+#conf_foo = {'libdefaults': {'default_realm': 'FOO'}
+#            }
+#conf_rep3 = {'realms': {'$realm': {'iprop_replica_poll': '600',
+#                                   'iprop_logfile': '$testdir/ulog.replica3',
+#                                   'iprop_port': '$port8'},
+#                        'FOO': {'iprop_logfile': '$testdir/ulog.replica3'}},
+#            'dbmodules': {'db': {'database_name': '$testdir/db.replica3'}}}
 
-krb5_conf_rep4 = {'domain_realm': {hostname: 'FOO'}}
-conf_rep4 = {'realms': {'$realm': {'iprop_replica_poll': '600',
-                                   'iprop_logfile': '$testdir/ulog.replica4',
-                                   'iprop_port': '$port8'}},
-             'dbmodules': {'db': {'database_name': '$testdir/db.replica4'}}}
+#krb5_conf_rep4 = {'domain_realm': {hostname: 'FOO'}}
+#conf_rep4 = {'realms': {'$realm': {'iprop_replica_poll': '600',
+#                                   'iprop_logfile': '$testdir/ulog.replica4',
+#                                   'iprop_port': '$port8'}},
+#             'dbmodules': {'db': {'database_name': '$testdir/db.replica4'}}}
 
 for realm in multidb_realms(kdc_conf=conf, create_user=False,
                             start_kadmind=True):
     replica1 = realm.special_env('replica1', True, kdc_conf=conf_rep1)
-    replica1m = realm.special_env('replica1m', True, krb5_conf=conf_foo,
-                                  kdc_conf=conf_rep1m)
-    replica2 = realm.special_env('replica2', True, kdc_conf=conf_rep2)
+#    replica1m = realm.special_env('replica1m', True, krb5_conf=conf_foo,
+#                                  kdc_conf=conf_rep1m)
+#    replica2 = realm.special_env('replica2', True, kdc_conf=conf_rep2)
 
     # A default_realm and domain_realm that do not match the KDC's
     # realm.  The FOO realm iprop_logfile setting is needed to run
     # kproplog during a replica3 test, since kproplog has no realm
     # option.
-    replica3 = realm.special_env('replica3', True, krb5_conf=conf_foo,
-                                 kdc_conf=conf_rep3)
+#    replica3 = realm.special_env('replica3', True, krb5_conf=conf_foo,
+#                                 kdc_conf=conf_rep3)
 
     # A default realm and a domain realm map that differ.
-    replica4 = realm.special_env('replica4', True, krb5_conf=krb5_conf_rep4,
-                                 kdc_conf=conf_rep4)
+#    replica4 = realm.special_env('replica4', True, krb5_conf=krb5_conf_rep4,
+#                                 kdc_conf=conf_rep4)
 
     # Define some principal names.  pr3 is long enough to cause internal
     # reallocs, but not long enough to grow the basic ulog entry size.
@@ -184,9 +195,9 @@ for realm in multidb_realms(kdc_conf=conf, create_user=False,
     dumpfile = os.path.join(realm.testdir, 'dump')
     realm.run([kdb5_util, 'dump', dumpfile])
     realm.run([kdb5_util, 'load', dumpfile], replica1)
-    realm.run([kdb5_util, 'load', dumpfile], replica2)
-    realm.run([kdb5_util, '-r', realm.realm, 'load', dumpfile], replica3)
-    realm.run([kdb5_util, 'load', dumpfile], replica4)
+#    realm.run([kdb5_util, 'load', dumpfile], replica2)
+#    realm.run([kdb5_util, '-r', realm.realm, 'load', dumpfile], replica3)
+#    realm.run([kdb5_util, 'load', dumpfile], replica4)
 
     # Reinitialize the master ulog so we know exactly what to expect in
     # it.
@@ -222,29 +233,29 @@ for realm in multidb_realms(kdc_conf=conf, create_user=False,
 
     # Start kadmind -proponly for replica1.  (Use the replica1m
     # environment which defines iprop_port to $port8.)
-    replica1_out_dump_path = os.path.join(realm.testdir, 'dump.replica1.out')
-    replica2_in_dump_path = os.path.join(realm.testdir, 'dump.replica2.in')
-    replica2_kprop_port = str(realm.portbase + 9)
-    kadmind_proponly = realm.start_server([kadmind, '-r', realm.realm,
-                                           '-nofork', '-proponly',
-                                           '-W', '-p', kdb5_util,
-                                           '-K', kprop, '-k',
-                                           replica2_kprop_port,
-                                           '-F', replica1_out_dump_path],
-                                          'starting...', replica1m)
+#    replica1_out_dump_path = os.path.join(realm.testdir, 'dump.replica1.out')
+#    replica2_in_dump_path = os.path.join(realm.testdir, 'dump.replica2.in')
+#    replica2_kprop_port = str(realm.portbase + 9)
+#    kadmind_proponly = realm.start_server([kadmind, '-r', realm.realm,
+#                                           '-nofork', '-proponly',
+#                                           '-W', '-p', kdb5_util,
+#                                           '-K', kprop, '-k',
+#                                           replica2_kprop_port,
+#                                           '-F', replica1_out_dump_path],
+#                                          'starting...', replica1m)
 
     # Test similar default_realm and domain_realm map settings with -r realm.
-    mark('propagate 1->3 full')
-    replica3_in_dump_path = os.path.join(realm.testdir, 'dump.replica3.in')
-    kpropd3 = realm.start_server([kpropd, '-d', '-D', '-r', realm.realm, '-P',
-                                  replica2_kprop_port, '-f',
-                                  replica3_in_dump_path, '-p', kdb5_util, '-a',
-                                  acl_file, '-A', hostname], 'ready', replica3)
-    wait_for_prop(kpropd3, True, 1, 7)
-    out = realm.run([kadminl, '-r', realm.realm, 'listprincs'], env=replica3)
-    if pr1 not in out or pr2 not in out or pr3 not in out:
-        fail('replica3 does not have all principals from replica1')
-    check_ulog(1, 7, 7, [None], env=replica3)
+#    mark('propagate 1->3 full')
+#    replica3_in_dump_path = os.path.join(realm.testdir, 'dump.replica3.in')
+#    kpropd3 = realm.start_server([kpropd, '-d', '-D', '-r', realm.realm, '-P',
+#                                  replica2_kprop_port, '-f',
+#                                  replica3_in_dump_path, '-p', kdb5_util, '-a',
+#                                  acl_file, '-A', hostname], 'ready', replica3)
+#    wait_for_prop(kpropd3, True, 1, 7)
+#    out = realm.run([kadminl, '-r', realm.realm, 'listprincs'], env=replica3)
+#    if pr1 not in out or pr2 not in out or pr3 not in out:
+#        fail('replica3 does not have all principals from replica1')
+#    check_ulog(1, 7, 7, [None], env=replica3)
 
     # Test an incremental propagation for the kpropd -r case.
     mark('propagate M->1->3 incremental')
@@ -255,43 +266,43 @@ for realm in multidb_realms(kdc_conf=conf, create_user=False,
     check_ulog(3, 6, 8, [None, pr2, pr1], replica1)
     realm.run([kadminl, 'getprinc', pr1], env=replica1,
               expected_msg='Maximum ticket life: 0 days 00:20:00')
-    kpropd3.send_signal(signal.SIGUSR1)
-    wait_for_prop(kpropd3, False, 7, 8)
-    check_ulog(2, 7, 8, [None, pr1], replica3)
-    realm.run([kadminl, '-r', realm.realm, 'getprinc', pr1], env=replica3,
-              expected_msg='Maximum ticket life: 0 days 00:20:00')
-    stop_daemon(kpropd3)
+#    kpropd3.send_signal(signal.SIGUSR1)
+#    wait_for_prop(kpropd3, False, 7, 8)
+#    check_ulog(2, 7, 8, [None, pr1], replica3)
+#    realm.run([kadminl, '-r', realm.realm, 'getprinc', pr1], env=replica3,
+#              expected_msg='Maximum ticket life: 0 days 00:20:00')
+#    stop_daemon(kpropd3)
 
     # Test dissimilar default_realm and domain_realm map settings (no
     # -r realm).
-    mark('propagate 1->4 full')
-    replica4_in_dump_path = os.path.join(realm.testdir, 'dump.replica4.in')
-    kpropd4 = realm.start_server([kpropd, '-d', '-D', '-P',
-                                  replica2_kprop_port, '-f',
-                                  replica4_in_dump_path, '-p', kdb5_util,
-                                  '-a', acl_file, '-A', hostname], 'ready',
-                                 replica4)
-    wait_for_prop(kpropd4, True, 1, 8)
-    out = realm.run([kadminl, 'listprincs'], env=replica4)
-    if pr1 not in out or pr2 not in out or pr3 not in out:
-        fail('replica4 does not have all principals from replica1')
-    stop_daemon(kpropd4)
+#    mark('propagate 1->4 full')
+#    replica4_in_dump_path = os.path.join(realm.testdir, 'dump.replica4.in')
+#    kpropd4 = realm.start_server([kpropd, '-d', '-D', '-P',
+#                                  replica2_kprop_port, '-f',
+#                                  replica4_in_dump_path, '-p', kdb5_util,
+#                                  '-a', acl_file, '-A', hostname], 'ready',
+#                                 replica4)
+#    wait_for_prop(kpropd4, True, 1, 8)
+#    out = realm.run([kadminl, 'listprincs'], env=replica4)
+#    if pr1 not in out or pr2 not in out or pr3 not in out:
+#        fail('replica4 does not have all principals from replica1')
+#    stop_daemon(kpropd4)
 
     # Start kpropd for replica2.  The -A option isn't needed since
     # we're talking to the same host as master (we specify it anyway
     # to exercise the code), but replica2 defines iprop_port to $port8
     # so it will talk to replica1.  Get a full dump from replica1.
-    mark('propagate 1->2 full')
-    kpropd2 = realm.start_server([kpropd, '-d', '-D', '-P',
-                                  replica2_kprop_port, '-f',
-                                  replica2_in_dump_path, '-p', kdb5_util,
-                                  '-a', acl_file, '-A', hostname], 'ready',
-                                 replica2)
-    wait_for_prop(kpropd2, True, 1, 8)
-    check_ulog(2, 7, 8, [None, pr1], replica2)
-    out = realm.run([kadminl, 'listprincs'], env=replica1)
-    if pr1 not in out or pr2 not in out or pr3 not in out:
-        fail('replica2 does not have all principals from replica1')
+#    mark('propagate 1->2 full')
+#    kpropd2 = realm.start_server([kpropd, '-d', '-D', '-P',
+#                                  replica2_kprop_port, '-f',
+#                                  replica2_in_dump_path, '-p', kdb5_util,
+#                                  '-a', acl_file, '-A', hostname], 'ready',
+#                                 replica2)
+#    wait_for_prop(kpropd2, True, 1, 8)
+#    check_ulog(2, 7, 8, [None, pr1], replica2)
+#    out = realm.run([kadminl, 'listprincs'], env=replica1)
+#    if pr1 not in out or pr2 not in out or pr3 not in out:
+#        fail('replica2 does not have all principals from replica1')
 
     # Make another change and check that it propagates incrementally
     # to both replicas.
@@ -303,11 +314,11 @@ for realm in multidb_realms(kdc_conf=conf, create_user=False,
     check_ulog(4, 6, 9, [None, pr2, pr1, pr1], replica1)
     realm.run([kadminl, 'getprinc', pr1], env=replica1,
               expected_msg='Maximum renewable life: 0 days 22:00:00\n')
-    kpropd2.send_signal(signal.SIGUSR1)
-    wait_for_prop(kpropd2, False, 8, 9)
-    check_ulog(3, 7, 9, [None, pr1, pr1], replica2)
-    realm.run([kadminl, 'getprinc', pr1], env=replica2,
-              expected_msg='Maximum renewable life: 0 days 22:00:00\n')
+#    kpropd2.send_signal(signal.SIGUSR1)
+#    wait_for_prop(kpropd2, False, 8, 9)
+#    check_ulog(3, 7, 9, [None, pr1, pr1], replica2)
+#    realm.run([kadminl, 'getprinc', pr1], env=replica2,
+#              expected_msg='Maximum renewable life: 0 days 22:00:00\n')
 
     # Reset the ulog on replica1 to force a full resync from master.
     # The resync will use the old dump file and then propagate
@@ -319,9 +330,9 @@ for realm in multidb_realms(kdc_conf=conf, create_user=False,
     kpropd1.send_signal(signal.SIGUSR1)
     wait_for_prop(kpropd1, True, 1, 9)
     check_ulog(4, 6, 9, [None, pr2, pr1, pr1], replica1)
-    kpropd2.send_signal(signal.SIGUSR1)
-    wait_for_prop(kpropd2, False, 9, 9)
-    check_ulog(3, 7, 9, [None, pr1, pr1], replica2)
+#    kpropd2.send_signal(signal.SIGUSR1)
+#    wait_for_prop(kpropd2, False, 9, 9)
+#    check_ulog(3, 7, 9, [None, pr1, pr1], replica2)
 
     # Make another change and check that it propagates incrementally to
     # both replicas.
@@ -333,11 +344,11 @@ for realm in multidb_realms(kdc_conf=conf, create_user=False,
     check_ulog(5, 6, 10, [None, pr2, pr1, pr1, pr2], replica1)
     realm.run([kadminl, 'getprinc', pr2], env=replica1,
               expected_msg='Attributes:\n')
-    kpropd2.send_signal(signal.SIGUSR1)
-    wait_for_prop(kpropd2, False, 9, 10)
-    check_ulog(4, 7, 10, [None, pr1, pr1, pr2], replica2)
-    realm.run([kadminl, 'getprinc', pr2], env=replica2,
-              expected_msg='Attributes:\n')
+#    kpropd2.send_signal(signal.SIGUSR1)
+#    wait_for_prop(kpropd2, False, 9, 10)
+#    check_ulog(4, 7, 10, [None, pr1, pr1, pr2], replica2)
+#    realm.run([kadminl, 'getprinc', pr2], env=replica2,
+#              expected_msg='Attributes:\n')
 
     # Create a policy and check that it propagates via full resync.
     mark('propagate M->1->2 full (new policy)')
@@ -348,11 +359,11 @@ for realm in multidb_realms(kdc_conf=conf, create_user=False,
     check_ulog(1, 1, 1, [None], replica1)
     realm.run([kadminl, 'getpol', 'testpol'], env=replica1,
               expected_msg='Minimum number of password character classes: 2')
-    kpropd2.send_signal(signal.SIGUSR1)
-    wait_for_prop(kpropd2, True, 10, 1)
-    check_ulog(1, 1, 1, [None], replica2)
-    realm.run([kadminl, 'getpol', 'testpol'], env=replica2,
-              expected_msg='Minimum number of password character classes: 2')
+#    kpropd2.send_signal(signal.SIGUSR1)
+#    wait_for_prop(kpropd2, True, 10, 1)
+#    check_ulog(1, 1, 1, [None], replica2)
+#    realm.run([kadminl, 'getpol', 'testpol'], env=replica2,
+#              expected_msg='Minimum number of password character classes: 2')
 
     # Modify the policy and test that it also propagates via full resync.
     mark('propagate M->1->2 full (policy change)')
@@ -363,11 +374,11 @@ for realm in multidb_realms(kdc_conf=conf, create_user=False,
     check_ulog(1, 1, 1, [None], replica1)
     realm.run([kadminl, 'getpol', 'testpol'], env=replica1,
               expected_msg='Minimum password length: 17')
-    kpropd2.send_signal(signal.SIGUSR1)
-    wait_for_prop(kpropd2, True, 1, 1)
-    check_ulog(1, 1, 1, [None], replica2)
-    realm.run([kadminl, 'getpol', 'testpol'], env=replica2,
-              expected_msg='Minimum password length: 17')
+#    kpropd2.send_signal(signal.SIGUSR1)
+#    wait_for_prop(kpropd2, True, 1, 1)
+#    check_ulog(1, 1, 1, [None], replica2)
+#    realm.run([kadminl, 'getpol', 'testpol'], env=replica2,
+#              expected_msg='Minimum password length: 17')
 
     # Delete the policy and test that it propagates via full resync.
     mark('propgate M->1->2 full (policy delete)')
@@ -378,11 +389,11 @@ for realm in multidb_realms(kdc_conf=conf, create_user=False,
     check_ulog(1, 1, 1, [None], replica1)
     realm.run([kadminl, 'getpol', 'testpol'], env=replica1, expected_code=1,
               expected_msg='Policy does not exist')
-    kpropd2.send_signal(signal.SIGUSR1)
-    wait_for_prop(kpropd2, True, 1, 1)
-    check_ulog(1, 1, 1, [None], replica2)
-    realm.run([kadminl, 'getpol', 'testpol'], env=replica2, expected_code=1,
-              expected_msg='Policy does not exist')
+#    kpropd2.send_signal(signal.SIGUSR1)
+#    wait_for_prop(kpropd2, True, 1, 1)
+#    check_ulog(1, 1, 1, [None], replica2)
+#    realm.run([kadminl, 'getpol', 'testpol'], env=replica2, expected_code=1,
+#              expected_msg='Policy does not exist')
 
     # Modify a principal on the master and test that it propagates
     # incrementally.
@@ -394,11 +405,11 @@ for realm in multidb_realms(kdc_conf=conf, create_user=False,
     check_ulog(2, 1, 2, [None, pr1], replica1)
     realm.run([kadminl, 'getprinc', pr1], env=replica1,
               expected_msg='Maximum ticket life: 0 days 00:10:00')
-    kpropd2.send_signal(signal.SIGUSR1)
-    wait_for_prop(kpropd2, False, 1, 2)
-    check_ulog(2, 1, 2, [None, pr1], replica2)
-    realm.run([kadminl, 'getprinc', pr1], env=replica2,
-              expected_msg='Maximum ticket life: 0 days 00:10:00')
+#    kpropd2.send_signal(signal.SIGUSR1)
+#    wait_for_prop(kpropd2, False, 1, 2)
+#    check_ulog(2, 1, 2, [None, pr1], replica2)
+#    realm.run([kadminl, 'getprinc', pr1], env=replica2,
+#              expected_msg='Maximum ticket life: 0 days 00:10:00')
 
     # Delete a principal and test that it propagates incrementally.
     mark('propagate M->1->2 incremental (princ delete)')
@@ -409,11 +420,11 @@ for realm in multidb_realms(kdc_conf=conf, create_user=False,
     check_ulog(3, 1, 3, [None, pr1, pr3], replica1)
     realm.run([kadminl, 'getprinc', pr3], env=replica1, expected_code=1,
               expected_msg='Principal does not exist')
-    kpropd2.send_signal(signal.SIGUSR1)
-    wait_for_prop(kpropd2, False, 2, 3)
-    check_ulog(3, 1, 3, [None, pr1, pr3], replica2)
-    realm.run([kadminl, 'getprinc', pr3], env=replica2, expected_code=1,
-              expected_msg='Principal does not exist')
+#    kpropd2.send_signal(signal.SIGUSR1)
+#    wait_for_prop(kpropd2, False, 2, 3)
+#    check_ulog(3, 1, 3, [None, pr1, pr3], replica2)
+#    realm.run([kadminl, 'getprinc', pr3], env=replica2, expected_code=1,
+#              expected_msg='Principal does not exist')
 
     # Rename a principal and test that it propagates incrementally.
     mark('propagate M->1->2 incremental (princ rename)')
@@ -426,12 +437,12 @@ for realm in multidb_realms(kdc_conf=conf, create_user=False,
     realm.run([kadminl, 'getprinc', pr1], env=replica1, expected_code=1,
               expected_msg='Principal does not exist')
     realm.run([kadminl, 'getprinc', renpr], env=replica1)
-    kpropd2.send_signal(signal.SIGUSR1)
-    wait_for_prop(kpropd2, False, 3, 6)
-    check_ulog(6, 1, 6, [None, pr1, pr3, renpr, pr1, renpr], replica2)
-    realm.run([kadminl, 'getprinc', pr1], env=replica2, expected_code=1,
-              expected_msg='Principal does not exist')
-    realm.run([kadminl, 'getprinc', renpr], env=replica2)
+#    kpropd2.send_signal(signal.SIGUSR1)
+#    wait_for_prop(kpropd2, False, 3, 6)
+#    check_ulog(6, 1, 6, [None, pr1, pr3, renpr, pr1, renpr], replica2)
+#    realm.run([kadminl, 'getprinc', pr1], env=replica2, expected_code=1,
+#              expected_msg='Principal does not exist')
+#    realm.run([kadminl, 'getprinc', renpr], env=replica2)
 
     pr1 = renpr
 
@@ -442,14 +453,14 @@ for realm in multidb_realms(kdc_conf=conf, create_user=False,
     kpropd1.send_signal(signal.SIGUSR1)
     wait_for_prop(kpropd1, True, 6, 1)
     check_ulog(1, 1, 1, [None], replica1)
-    kpropd2.send_signal(signal.SIGUSR1)
-    wait_for_prop(kpropd2, True, 6, 1)
-    check_ulog(1, 1, 1, [None], replica2)
+#    kpropd2.send_signal(signal.SIGUSR1)
+#    wait_for_prop(kpropd2, True, 6, 1)
+#    check_ulog(1, 1, 1, [None], replica2)
 
     # Stop the kprop daemons so we can test kpropd -t.
     realm.stop_kpropd(kpropd1)
-    stop_daemon(kpropd2)
-    stop_daemon(kadmind_proponly)
+#    stop_daemon(kpropd2)
+#    stop_daemon(kadmind_proponly)
     mark('kpropd -t')
 
     # Test the case where no updates are needed.

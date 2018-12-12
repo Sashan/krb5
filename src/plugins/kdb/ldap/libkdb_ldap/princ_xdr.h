@@ -6,9 +6,7 @@
 #include <krb5.h>
 #include <kdb.h>
 #include <kadm5/server_internal.h>
-
-void
-ldap_osa_free_princ_ent(osa_princ_ent_t val);
+#include <rpc/rpc.h>
 
 krb5_error_code
 krb5_lookup_tl_kadm_data(krb5_tl_data *tl_data,
