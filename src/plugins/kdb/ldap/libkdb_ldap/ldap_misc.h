@@ -36,6 +36,8 @@
 #ifndef _HAVE_LDAP_MISC_H
 #define _HAVE_LDAP_MISC_H 1
 
+#define DEF_SERVICE_PASSWD_FILE KDC_DIR "/service_passwd"
+
 /* misc functions */
 
 krb5_boolean
