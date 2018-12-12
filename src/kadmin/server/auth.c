@@ -272,7 +272,8 @@ auth_restrict(krb5_context context, int opcode, krb5_const_principal client,
     krb5_const_principal target = ent->principal;
     struct kadm5_auth_restrictions *rs;
 
-    assert(opcode == OP_ADDPRINC || opcode == OP_MODPRINC);
+    assert(opcode == OP_ADDPRINC || opcode == OP_MODPRINC ||
+	opcode == OP_MIGRATE);
     for (hp = handles; *hp != NULL; hp++) {
         h = *hp;
 
@@ -284,7 +285,10 @@ auth_restrict(krb5_context context, int opcode, krb5_const_principal client,
         } else if (opcode == OP_MODPRINC && h->vt.modprinc != NULL) {
             ret = h->vt.modprinc(context, h->data, client, target, ent, *mask,
                                  &rs);
-        }
+        } else if (opcode == OP_MIGRATE && h->vt.migrate != NULL) {
+            ret = h->vt.migrate(context, h->data, client, target, ent, *mask,
+                                 &rs);
+	}
         if (rs != NULL) {
             rs_ret = impose_restrictions(context, rs, ent, mask);
             if (h->vt.free_restrictions != NULL)

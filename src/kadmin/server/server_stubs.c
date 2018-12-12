@@ -18,6 +18,7 @@
 #include <rpc/svc_mt.h>
 #include "misc.h"
 #include "auth.h"
+#include <security/pam_appl.h>
 
 extern gss_name_t                       gss_changepw_name;
 extern gss_name_t                       gss_oldchangepw_name;
@@ -517,6 +518,80 @@ log_done(
                             client_addr(rqstp->rq_xprt));
 }
 
+/*
+ * This routine primarily validates the username and password
+ * of the principal to be created, if a prior acl check for
+ * the 'u' privilege succeeds. Validation is done using
+ * the PAM `k5migrate' service. k5migrate normally stacks
+ * pam_unix_auth.so and pam_unix_account.so in its auth and
+ * account stacks respectively.
+ *
+ * Returns 1 (true), if validation is successful,
+ * else returns 0 (false).
+ */
+int
+verify_pam_pw(char *userdata, char *pwd)
+{
+	pam_handle_t *pamh;
+	int err = 0;
+	int result = 1;
+	char *user = NULL;
+	char *ptr = NULL;
+
+	ptr = strchr(userdata, '@');
+	if (ptr != NULL) {
+		user = (char *)malloc(ptr - userdata + 1);
+		if (user == NULL)
+			return (0);
+		(void) strlcpy(user, userdata, (ptr - userdata) + 1);
+	} else {
+		user = (char *)strdup(userdata);
+		if (user == NULL)
+			return (0);
+	}
+
+	err = pam_start("k5migrate", user, NULL, &pamh);
+	if (err != PAM_SUCCESS) {
+		syslog(LOG_ERR, "verify_pam_pw: pam_start() failed, %s\n",
+				pam_strerror(pamh, err));
+		free(user);
+		return (0);
+	}
+
+	err = pam_set_item(pamh, PAM_AUTHTOK, (void *)pwd);
+	if (err != PAM_SUCCESS) {
+		syslog(LOG_ERR, "verify_pam_pw: pam_set_item() failed, %s\n",
+				pam_strerror(pamh, err));
+		free(user);
+		(void) pam_end(pamh, err);
+		return (0);
+	}
+
+	err = pam_authenticate(pamh, PAM_SILENT);
+	if (err != PAM_SUCCESS) {
+		syslog(LOG_ERR, "verify_pam_pw: pam_authenticate() failed for "
+				"user=%s, %s\n", user,
+				pam_strerror(pamh, err));
+		free(user);
+		(void) pam_end(pamh, err);
+		return (0);
+	}
+
+	err = pam_acct_mgmt(pamh, PAM_SILENT);
+	if (err != PAM_SUCCESS) {
+		syslog(LOG_ERR, "verify_pam_pw: pam_acct_mgmt() failed for "
+				"user=%s, %s\n", user,
+				pam_strerror(pamh, err));
+		free(user);
+		(void) pam_end(pamh, err);
+		return (0);
+	}
+
+	free(user);
+	(void) pam_end(pamh, PAM_SUCCESS);
+	return (result);
+}
+
 bool_t
 create_principal_2_svc(cprinc_arg *arg, generic_ret *ret,
                        struct svc_req *rqstp)
@@ -527,6 +602,8 @@ create_principal_2_svc(cprinc_arg *arg, generic_ret *ret,
     kadm5_server_handle_t       handle;
     const char                  *errmsg = NULL;
     gss_name_t                  name = NULL;
+    int				policy_migrate = 0;
+    kadm5_ret_t			retval;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->rec.principal,
                            &handle, &ret->api_version, &client_name,
@@ -534,8 +611,14 @@ create_principal_2_svc(cprinc_arg *arg, generic_ret *ret,
     if (ret->code)
         goto exit_func;
 
+    if (stub_auth_restrict(handle, OP_MIGRATE, &arg->rec, &arg->mask) &&
+	verify_pam_pw(prime_arg, arg->passwd)) {
+	policy_migrate = 1;
+    }
+
     if (CHANGEPW_SERVICE(rqstp) ||
-        !stub_auth_restrict(handle, OP_ADDPRINC, &arg->rec, &arg->mask)) {
+        (!stub_auth_restrict(handle, OP_ADDPRINC, &arg->rec, &arg->mask) &&
+             (!policy_migrate))) {
         ret->code = KADM5_AUTH_ADD;
         log_unauth("kadm5_create_principal", prime_arg,
                    &client_name, &service_name, rqstp);
@@ -551,6 +634,25 @@ create_principal_2_svc(cprinc_arg *arg, generic_ret *ret,
 
         if (errmsg != NULL)
             krb5_free_error_message(handle->context, errmsg);
+
+	if (policy_migrate && (ret->code == 0)) {
+		arg->rec.policy = strdup("default");
+		if ((arg->mask & KADM5_PW_EXPIRATION)) {
+			arg->mask = 0;
+			arg->mask |= KADM5_POLICY;
+			arg->mask |= KADM5_PW_EXPIRATION;
+		} else {
+			arg->mask = 0;
+			arg->mask |= KADM5_POLICY;
+		}
+
+		retval = kadm5_modify_principal((void *)handle,
+				&arg->rec, arg->mask);
+		log_done("kadm5_modify_principal",
+			prime_arg, ((retval == 0) ? "success" :
+			error_message(retval)), &client_name,
+			&service_name, rqstp);
+	}
     }
 
 exit_func:
@@ -568,6 +670,8 @@ create_principal3_2_svc(cprinc3_arg *arg, generic_ret *ret,
     kadm5_server_handle_t       handle;
     const char                  *errmsg = NULL;
     gss_name_t                  name = NULL;
+    int				policy_migrate = 0;
+    kadm5_ret_t			retval;
 
     ret->code = stub_setup(arg->api_version, rqstp, arg->rec.principal,
                            &handle, &ret->api_version, &client_name,
@@ -575,8 +679,13 @@ create_principal3_2_svc(cprinc3_arg *arg, generic_ret *ret,
     if (ret->code)
         goto exit_func;
 
+    if (stub_auth_restrict(handle, OP_MIGRATE, &arg->rec, &arg->mask) &&
+	verify_pam_pw(prime_arg, arg->passwd)) {
+	policy_migrate = 1;
+    }
     if (CHANGEPW_SERVICE(rqstp) ||
-        !stub_auth_restrict(handle, OP_ADDPRINC, &arg->rec, &arg->mask)) {
+        (!stub_auth_restrict(handle, OP_ADDPRINC, &arg->rec, &arg->mask) &&
+        !(policy_migrate))) {
         ret->code = KADM5_AUTH_ADD;
         log_unauth("kadm5_create_principal", prime_arg,
                    &client_name, &service_name, rqstp);
@@ -592,6 +701,24 @@ create_principal3_2_svc(cprinc3_arg *arg, generic_ret *ret,
 
         if (errmsg != NULL)
             krb5_free_error_message(handle->context, errmsg);
+
+	if (policy_migrate && (ret->code == 0)) {
+	 	arg->rec.policy = strdup("default");
+	 	if ((arg->mask & KADM5_PW_EXPIRATION)) {
+	 		arg->mask = 0;
+	 		arg->mask |= KADM5_POLICY;
+	 		arg->mask |= KADM5_PW_EXPIRATION;
+	 	} else {
+	 		arg->mask = 0;
+	 		arg->mask |= KADM5_POLICY;
+	 	}
+
+		retval = kadm5_modify_principal((void *)handle,
+					   &arg->rec, arg->mask);
+		log_done("kadm5_modify_principal", prime_arg,
+			((retval == 0) ? "success" : error_message(retval)),
+			&client_name, &service_name, rqstp);
+	 }
     }
 
 exit_func:
