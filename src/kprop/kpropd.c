@@ -731,18 +731,10 @@ reinit:
 
                 usage();
             }
-            reinit_cnt++;
             com_err(progname, retval,
-                    _("while initializing %s interface, retrying"),
-                    progname);
-            backoff_time = backoff_from_master(&reinit_cnt);
-            if (debug) {
-                fprintf(stderr, _("Sleeping %d seconds to re-initialize "
-                                  "kadm5 (krb5kdc not running?)\n"),
-                        backoff_time);
-            }
-            sleep(backoff_time);
-            goto reinit;
+                    _("while initializing %s interface for %s, exiting."),
+                    progname, iprop_svc_princstr);
+	    exit(1);
         }
     }
 
