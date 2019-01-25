@@ -38,6 +38,9 @@
 #include "kwarnd.h"
 #include "prof_solaris.h"
 
+extern OM_UINT32 kwarn_add_warning();
+extern OM_UINT32 kwarn_del_warning();
+
 #ifndef _WIN32
 #define GET_PROGNAME(x) (strrchr((x), '/') ? strrchr((x), '/') + 1 : (x))
 #else
