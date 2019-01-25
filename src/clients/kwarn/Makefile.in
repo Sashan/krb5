@@ -1,0 +1,81 @@
+mydir=clients$(S)kwarn
+BUILDTOP=$(REL)..$(S)..
+
+SRCS= \
+	kwarnd.c \
+	kwarnd_generic.c \
+	kwarnd_proc.c \
+	kwarnd_send.c \
+	kwarnd_svc.c
+
+TEST_SRCS= \
+	kwarndtest.c	\
+	kwarnd_clnt.c	\
+	kwarnd_clnt_stubs.c	\
+	kwarnd_handle.c	\
+	kwarnd_xdr.c
+
+XSRCS= \
+	kwarnd.h	\
+	kwarnd_clnt.c	\
+	kwarnd_svc.c	\
+	kwarnd_xdr.c
+
+OBJS= \
+	kwarnd.o	\
+	kwarnd_svc.o	\
+	kwarnd_xdr.o	\
+	kwarnd_proc.o	\
+	kwarnd_generic.o	\
+	kwarnd_send.o
+
+TEST_OBJS= \
+	kwarndtest.o	\
+	kwarnd_clnt.o	\
+	kwarnd_clnt_stubs.o	\
+	kwarnd_handle.o	\
+	kwarnd_xdr.o
+
+RPCGEN=@RPCGEN@
+
+#
+# kwarnd_proc.c includes prof_solaris.h
+#
+CPPFLAGS=-I$(top_srcdir)/lib/krb5
+CPPFLAGS+=-I$(top_srcdir)/util
+
+
+kwarnd.h:        kwarnd.x
+	$(RM) $@
+	$(RPCGEN) -M -h kwarnd.x > $@
+
+kwarnd_clnt.c:   kwarnd.x
+	$(RM) $@
+	$(RPCGEN) -M -l kwarnd.x > $@
+
+kwarnd_svc.c:    kwarnd.x
+	$(RM) $@
+	$(RPCGEN) -M -m kwarnd.x > $@
+
+kwarnd_xdr.c:    kwarnd.x
+	$(RM) $@
+	$(RPCGEN) -M -c kwarnd.x > $@
+
+all-unix: ktkt_warnd kwarndtest
+
+ktkt_warnd: kwarnd.h $(OBJS) $(KADMSRV_DEPLIBS) $(KRB5_BASE_DEPLIBS)
+	$(CC_LINK) -o $@ $(OBJS) $(KADMSRV_LIBS) $(KRB5_BASE_LIBS)
+
+kwarndtest: $(TEST_OBJS) $(KRB5_BASE_DEPLIBS) $(KADMSRV_DEPLIBS)
+	$(CC_LINK) -o $@ $(TEST_OBJS) $(KADMSRV_LIBS) $(KRB5_BASE_LIBS)
+
+clean:
+	$(RM) $(OBJS) $(TEST_OBJS) $(XSRCS) kwarndtest ktkt_warnd
+
+LOCALSTATEDIR=@localstatedir@
+MANIFESTPATH=/svc/manifest/network/security/ktkt_warn.xml
+
+install: ktkt_warnd
+	$(INSTALL_PROGRAM) ktkt_warnd ${DESTDIR}$(SERVER_BINDIR)/ktkt_warnd
+	$(INSTALL) ktkt_warn.xml \
+	    ${DESTDIR}$(LOCALSTATEDIR)$(MANIFESTPATH)
