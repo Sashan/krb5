@@ -35,12 +35,15 @@
 #include <locale.h>
 #include <string.h>
 #include <stdio.h>
+#include "kwarnd.h"
 
 #ifdef __STDC__
 #define BELL_CHAR '\a'
 #else
 #define BELL_CHAR '\007'
 #endif
+
+extern OM_UINT32 kwarn_del_warning();
 
 extern int optind;
 extern char *optarg;

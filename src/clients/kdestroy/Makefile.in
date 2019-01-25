@@ -24,13 +24,13 @@ kwarnd_clnt.c:	../kwarn/kwarnd.x
 	$(RPCGEN) -M -l ../kwarn/kwarnd.x > $@
 
 kwarnd_clnt_stubs.o: ../kwarn/kwarnd_clnt_stubs.c
-	$(CC) -c -o $@ ../kwarn/kwarnd_clnt_stubs.c
+	$(CC) $(CFLAGS) -c -o $@ ../kwarn/kwarnd_clnt_stubs.c
 
 kwarnd_handle.o: ../kwarn/kwarnd_handle.c
-	$(CC) -c -o $@ ../kwarn/kwarnd_handle.c
+	$(CC) $(CFLAGS) -c -o $@ ../kwarn/kwarnd_handle.c
 
 kwarnd_xdr.o: kwarnd.h kwarnd_xdr.c
-	$(CC) -c -o $@ kwarnd_xdr.c
+	$(CC) $(CFLAGS) -c -o $@ kwarnd_xdr.c
 
 ##WIN32##VERSIONRC = $(BUILDTOP)\windows\version.rc
 ##WIN32##RCFLAGS=$(CPPFLAGS) -I$(top_srcdir) -D_WIN32 -DRES_ONLY
