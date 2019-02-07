@@ -18,6 +18,7 @@
 #include <string.h>
 #include <rpc/svc.h>
 #include <locale.h>
+#include <k5-platform.h>
 
 extern int __rpc_negotiate_uid(int);
 
@@ -46,7 +47,7 @@ svc_create_local_service(void (*dispatch) (),		/* Dispatch function */
 
 	if ((net = __rpc_setconf(nettype)) == 0) {
 		(void) syslog(LOG_ERR,
-		gettext("svc_create: could not read netconfig database"));
+		_("svc_create: could not read netconfig database"));
 		return (0);
 	}
 	while (nconf = __rpc_getconf(net)) {
@@ -56,7 +57,7 @@ svc_create_local_service(void (*dispatch) (),		/* Dispatch function */
 
 		if ((fd = t_open(nconf->nc_device, O_RDWR, NULL)) < 0) {
 			(void) syslog(LOG_ERR,
-			gettext("svc_create: %s: cannot open connection: %s"),
+			_("svc_create: %s: cannot open connection: %s"),
 				nconf->nc_netid, t_errlist[t_errno]);
 			break;
 		}
@@ -69,7 +70,7 @@ svc_create_local_service(void (*dispatch) (),		/* Dispatch function */
 		 */
 		if (__rpc_negotiate_uid(fd) != 0) {
 			syslog(LOG_ERR,
-			gettext("Could not negotiate for"
+			_("Could not negotiate for"
 				" uid with loopback transport %s"),
 				nconf->nc_netid);
 			t_close(fd);
@@ -81,7 +82,7 @@ svc_create_local_service(void (*dispatch) (),		/* Dispatch function */
 		if ((bind_addr == NULL)) {
 			(void) t_close(fd);
 			(void) syslog(LOG_ERR,
-				gettext("svc_create: t_alloc failed\n"));
+				_("svc_create: t_alloc failed\n"));
 			break;
 		}
 		ns.h_host = HOST_SELF;
@@ -95,7 +96,7 @@ svc_create_local_service(void (*dispatch) (),		/* Dispatch function */
 			netdir_free((char *) nas, ND_ADDRLIST);
 		} else {
 			(void) syslog(LOG_ERR,
-			gettext("svc_create: no well known "
+			_("svc_create: no well known "
 				"address for %s on %s\n"),
 				servname, nconf->nc_netid);
 			(void) t_free((char *) bind_addr, T_BIND);
@@ -108,14 +109,14 @@ svc_create_local_service(void (*dispatch) (),		/* Dispatch function */
 		if (xprt == NULL) {
 			(void) t_close(fd);
 			(void) syslog(LOG_ERR,
-			    gettext("svc_create: svc_tli_create failed\n"));
+			    _("svc_create: svc_tli_create failed\n"));
 			break;
 		} else {
 			(void) rpcb_unset(prognum, versnum, nconf);
 			if (svc_reg(xprt, prognum, versnum, dispatch, nconf)
 					== FALSE) {
 				(void) syslog(LOG_ERR,
-				gettext("svc_create: cannot"
+				_("svc_create: cannot"
 					" register %d vers %d on %s"),
 					prognum, versnum, nconf->nc_netid);
 				SVC_DESTROY(xprt);	/* also t_closes fd */

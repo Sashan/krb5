@@ -28,6 +28,7 @@
 #include <netdb.h>
 #include <libgen.h>
 #include <signal.h>
+#include <k5-platform.h>
 #include "kwarnd.h"
 
 #define	MAXTHREADS 64
@@ -87,9 +88,9 @@ char **argv;
 #endif /* DEBUG */
 	if (_getuid()) {
 		(void) fprintf(stderr,
-				gettext("[%s] must be run as root\n"), argv[0]);
+				_("[%s] must be run as root\n"), argv[0]);
 #ifdef DEBUG
-		(void) fprintf(stderr, gettext(" warning only\n"));
+		(void) fprintf(stderr, _(" warning only\n"));
 #else /* !DEBUG */
 		exit(1);
 #endif /* DEBUG */
@@ -129,22 +130,21 @@ char **argv;
 		}
 
 		if ((nconf = getnetconfigent(netid)) == NULL) {
-			syslog(LOG_ERR, gettext("cannot get transport info"));
+			syslog(LOG_ERR, _("cannot get transport info"));
 			exit(1);
 		}
 
 		if (strcmp(mname, "sockmod") == 0) {
 			if (ioctl(0, I_POP, 0) || ioctl(0, I_PUSH, "timod")) {
 				syslog(LOG_ERR,
-					gettext("could not get the "
-						"right module"));
+					_("could not get the right module"));
 				exit(1);
 			}
 		}
 
 		/* XXX - is nconf even needed here? */
 		if ((transp = svc_tli_create(0, nconf, NULL, 0, 0)) == NULL) {
-			syslog(LOG_ERR, gettext("cannot create server handle"));
+			syslog(LOG_ERR, _("cannot create server handle"));
 			exit(1);
 		}
 
@@ -154,8 +154,7 @@ char **argv;
 		 */
 		if (!svc_reg(transp, KWARNPROG, KWARNVERS, kwarnprog_1, NULL)) {
 			syslog(LOG_ERR,
-				gettext("unable to register "
-					"(KWARNPROG, KWARNVERS)"));
+			    _("unable to register (KWARNPROG, KWARNVERS)"));
 			exit(1);
 		}
 
@@ -170,15 +169,14 @@ char **argv;
 
 		if (svc_create_local_service(kwarnprog_1, KWARNPROG, KWARNVERS,
 		    "netpath", "kwarnd") == 0) {
-			syslog(LOG_ERR, gettext("unable to create service"));
+			syslog(LOG_ERR, _("unable to create service"));
 			exit(1);
 		}
 	}
 
 
 	if (kwarnd_debug) {
-		fprintf(stderr,
-		    gettext("kwarnd start: \n"));
+		fprintf(stderr, _("kwarnd start: \n"));
 	}
 
 	(void) signal(SIGCHLD, SIG_IGN);
@@ -187,18 +185,17 @@ char **argv;
 			(void *(*)(void *))kwarnd_check_warning_list, NULL,
 			THR_DETACHED | THR_DAEMON | THR_NEW_LWP,
 			NULL)) {
-		syslog(LOG_ERR,
-			gettext("unable to create cache_cleanup thread"));
+		syslog(LOG_ERR, _("unable to create cache_cleanup thread"));
 		exit(1);
 	}
 
 	if (!loadConfigFile()) {
-		syslog(LOG_ERR, gettext("could not read config file\n"));
+		syslog(LOG_ERR, _("could not read config file\n"));
 		exit(1);
 	}
 
 	if (!rpc_control(RPC_SVC_MTMODE_SET, &rpc_svc_mode)) {
-		syslog(LOG_ERR, gettext("unable to set automatic MT mode"));
+		syslog(LOG_ERR, _("unable to set automatic MT mode"));
 		exit(1);
 	}
 
@@ -213,7 +210,7 @@ char **argv;
 static void
 usage(void)
 {
-	(void) fprintf(stderr, gettext("usage: %s [-d]\n"), progname);
+	(void) fprintf(stderr, _("usage: %s [-d]\n"), progname);
 	exit(1);
 }
 
@@ -226,7 +223,7 @@ detachfromtty(void)
 {
 	switch (fork()) {
 	case -1:
-		perror(gettext("kwarnd: can not fork"));
+		perror(_("kwarnd: can not fork"));
 		exit(1);
 		/*NOTREACHED*/
 	case 0:

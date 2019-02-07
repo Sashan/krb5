@@ -24,6 +24,7 @@
 #include	<wctype.h>
 #include	<errno.h>
 #include	<syslog.h>
+#include	<k5-platform.h>
 
 #define		TRUE	1
 #define		FALSE	0
@@ -102,7 +103,7 @@ warn_send(char *receipient, char *msg)
 				alarm(0);
 				if (fp == NULL) {
 					syslog(LOG_ERR,
-					    gettext("When sending Kerberos "
+					    _("When sending Kerberos "
 					    "ticket warning information, "
 					    "could not open terminal %s "
 					    "(errno=%d)\n"),
@@ -120,11 +121,11 @@ warn_send(char *receipient, char *msg)
 
 				time(&tod);
 				cftime(time_buf, "%c", &tod);
-				(void) fprintf(fp, gettext(
+				(void) fprintf(fp, _(
 	    "\r\n\007\007\007\tMessage from %s@%s [ %s ] ...\r\n"),
 				    progname, myhostname, time_buf);
 				sleep(1);
-				fprintf(fp, gettext("\r\nMessage to %s"), msg);
+				fprintf(fp, _("\r\nMessage to %s"), msg);
 				fflush(fp);
 
 /*	Since "end of file" received, send <EOT> message to receipient.	*/
@@ -142,7 +143,7 @@ warn_send(char *receipient, char *msg)
 
 	if (*rterm == '\0')
 		if (bad > 0) {
-			(void) syslog(LOG_ERR, gettext("no place to send.\n"));
+			(void) syslog(LOG_ERR, _("no place to send.\n"));
 			return (1);
 		}
 
@@ -165,10 +166,10 @@ openfail(int i)
 	extern char *rterm;
 #if 0
 	(void) fprintf(stderr,
-		gettext("Timeout trying to open line(%s).\n"),
+		_("Timeout trying to open line(%s).\n"),
 			rterm);
 #endif
-	syslog(LOG_ERR, gettext("Timeout trying to open line(%s).\n"),
+	syslog(LOG_ERR, _("Timeout trying to open line(%s).\n"),
 			rterm ? rterm : "");
 	exit(1);
 }
@@ -178,5 +179,5 @@ eof(void)
 {
 	extern FILE *fp;
 
-	(void) fprintf(fp, "%s\r\n", gettext("<EOT>"));
+	(void) fprintf(fp, "%s\r\n", _("<EOT>"));
 }

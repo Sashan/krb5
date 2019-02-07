@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include "kwarnd.h"
 #include <rpc/rpc.h>
+#include <k5-platform.h>
 
 #define	LOOP_COUNTER  100
 
@@ -42,7 +43,7 @@ static int read_line(char *buf, int size)
 	int len;
 
 	/* read the next line. If cntl-d, return with zero char count */
-	printf(gettext("\n> "));
+	printf(_("\n> "));
 
 	if (fgets(buf, size, stdin) == NULL)
 		return (0);
@@ -89,7 +90,7 @@ do_kwarndtest(char *buf)
 	argv = 0;
 
 	if (parse_input_line(buf, &argc, &argv) == 0) {
-		printf(gettext("\n"));
+		printf(_("\n"));
 		return (1);
 	}
 
@@ -119,7 +120,7 @@ do_kwarndtest(char *buf)
 		strcmp(cmd, "delete") == 0) {
 		_kwarnd_del_warning(argc, argv);
 	} else if (strcmp(cmd, "exit") == 0) {
-		printf(gettext("\n"));
+		printf(_("\n"));
 		FREE(argv_array, (argc+2) * sizeof (char *));
 		return (1);
 	} else
@@ -157,12 +158,12 @@ _kwarnd_add_warning(int argc, char **argv)
 	status = kwarn_add_warning(argv[0], exptime);
 
 	if (status == 0) {
-		printf(gettext("\nadd of credential\n\n"));
-		printf(gettext("warning message successful for \"%s\"\n\n"),
+		printf(_("\nadd of credential\n\n"));
+		printf(_("warning message successful for \"%s\"\n\n"),
 			argv[0]);
 	} else {
-		printf(gettext("server ret err (octal) %o (%s)\n"),
-			status, gettext("add warning error"));
+		printf(_("server ret err (octal) %o (%s)\n"),
+			status, _("add warning error"));
 	}
 
 	return;
@@ -182,11 +183,11 @@ _kwarnd_del_warning(int argc, char **argv)
 	status = kwarn_del_warning(argv[0]);
 
 	if (status == 0) {
-		printf(gettext("delete of principal warning message"
+		printf(_("delete of principal warning message"
 				"for %s successful"),
 			argv[0]);
 	} else {
-		printf(gettext("delete of principal %s unsuccessful\n\n"),
+		printf(_("delete of principal %s unsuccessful\n\n"),
 			argv[0]);
 	}
 }
@@ -195,7 +196,7 @@ static void
 instructs(void)
 {
 	fprintf(stderr,
-		gettext(
+		_(
 "\nThis program will test kwarnd.  kwarnd must be running as root. Enter\n"
 "the desired command and the principal to be added/deleted. If adding a\n"
 "principal, also include the expiration time in seconds.\n"));
@@ -205,7 +206,7 @@ static void
 usage(void)
 {
 	fprintf(stderr,
-		gettext(
+		_(
 		"\nusage:\t[kwarn_add_warning | add] (principal) (exptime)\n"
 		"\t[kwarn_del_warning | delete] (principal)\n"
 		"\texit\n\n"));

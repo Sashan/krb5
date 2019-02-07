@@ -196,14 +196,14 @@ kwarn_del_warning_1_svc(kwarn_del_warning_arg *argp,
 			struct svc_req *rqstp)
 {
 	if (kwarnd_debug)
-		printf(gettext("delete principal %s requested\n"),
+		printf(_("delete principal %s requested\n"),
 		    argp->warning_name);
 
 	if (del_warning_pvt(argp->warning_name) == TRUE) {
 		res->status = 0;
 
 		if (kwarnd_debug)
-			printf(gettext("delete principal %s completed\n"),
+			printf(_("delete principal %s completed\n"),
 			    argp->warning_name);
 
 		return (TRUE);
@@ -211,7 +211,7 @@ kwarn_del_warning_1_svc(kwarn_del_warning_arg *argp,
 		res->status = 1;
 
 		if (kwarnd_debug)
-			printf(gettext("delete principal %s failed\n"),
+			printf(_("delete principal %s failed\n"),
 				argp->warning_name);
 
 		return (TRUE);
@@ -254,10 +254,10 @@ loadConfigFile(void)
 	bool_t	retval = TRUE;
 
 	if ((cfgfile = fopen(CONF_FILENAME, "r")) == NULL) {
-		syslog(LOG_ERR, gettext(
+		syslog(LOG_ERR, _(
 			"could not open config file \"%s\"\n"),
 			CONF_FILENAME);
-		syslog(LOG_ERR, gettext(
+		syslog(LOG_ERR, _(
 			"using default options \"%s\"\n"),
 			DEFAULT_CONFIG);
 		retval = parseConfigLine(DEFAULT_CONFIG);
@@ -518,7 +518,7 @@ parseConfigLine(char *buffer)
 		if (kwarnd_debug)
 			printf("parseconf: returns true; no mail addr\n");
 
-		syslog(LOG_ERR, gettext("missing mail address"
+		syslog(LOG_ERR, _("missing mail address"
 			" in config entry: \n%s %s %s "
 			" cannot mail warning"), principal,
 			send_to, exptime);
@@ -743,27 +743,26 @@ renew_creds(
 
 	if ((code = krb5_init_context(&k5.ctx))) {
 		com_err(progname, code,
-			gettext("while initializing Kerberos 5 library"));
+			_("while initializing Kerberos 5 library"));
 		goto out;
 	}
 
 	if ((code = krb5_cc_default(k5.ctx, &k5.cc))) {
-		com_err(progname, code,
-			gettext("while getting default ccache"));
+		com_err(progname, code, _("while getting default ccache"));
 		goto out;
 
 	}
 
 	if ((code = krb5_parse_name(k5.ctx, princ,
 				    &k5.me))) {
-		com_err(progname, code, gettext("when parsing name %s"),
+		com_err(progname, code, _("when parsing name %s"),
 			princ);
 		goto out;
 	}
 
 	if ((code = krb5_get_renewed_creds(k5.ctx, &my_creds, k5.me, k5.cc,
 					NULL))) {
-		com_err(progname, code, gettext("while renewing creds"));
+		com_err(progname, code, _("while renewing creds"));
 		goto out;
 	}
 
@@ -922,7 +921,7 @@ kwarnd_check_warning_list(void)
 								send_msg = 1;
 								snprintf(buff,
 								sizeof (buff),
-					gettext("%s:\r\nYour kerberos"
+					_("%s:\r\nYour kerberos"
 					" credentials have not been renewed"
 					" (too close to Renewable_life).\r\n"
 					"Please run kinit(1).\r\n"),
@@ -951,7 +950,7 @@ kwarnd_check_warning_list(void)
 							send_msg = 1;
 							snprintf(buff,
 								sizeof (buff),
-						gettext("%s:\r\nYour kerberos"
+						_("%s:\r\nYour kerberos"
 					" credentials have been renewed.\r\n"),
 								cw->warn_name);
 						}
@@ -967,7 +966,7 @@ kwarnd_check_warning_list(void)
 						send_msg = 1;
 						snprintf(buff,
 							sizeof (buff),
-					    gettext("%s:\r\nYour kerberos"
+					    _("%s:\r\nYour kerberos"
 				" credentials failed to be renewed (%s).\r\n"),
 							cw->warn_name,
 							error_message(code));
@@ -977,7 +976,7 @@ kwarnd_check_warning_list(void)
 				} else if (minutes > 0) {
 					send_msg = 1;
 					snprintf(buff, sizeof (buff),
-					gettext("%s:\r\nyour kerberos"
+					_("%s:\r\nyour kerberos"
 					" credentials expire in less than"
 					" %d minutes.\r\n"),
 					cw->warn_name,
@@ -985,7 +984,7 @@ kwarnd_check_warning_list(void)
 				} else {
 					send_msg = 1;
 					snprintf(buff, sizeof (buff),
-					gettext("%s:\r\nyour kerberos"
+					_("%s:\r\nyour kerberos"
 					" credentials have expired.\r\n"),
 					cw->warn_name);
 				}
@@ -1022,7 +1021,7 @@ kwarnd_check_warning_list(void)
 					    fclose(fp);
 					} else {
 					    syslog(LOG_ERR,
-						gettext("could not fork "
+						_("could not fork "
 						"mail program to e-mail "
 						"warning to %s\n"),
 						cmdline);
@@ -1071,7 +1070,7 @@ kwarnd_check_warning_list(void)
 							printf(
 						"could not delete warning\n");
 
-						syslog(LOG_ERR, gettext(
+						syslog(LOG_ERR, _(
 						"could not delete warning"));
 
 						exit(1);
