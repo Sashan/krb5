@@ -415,18 +415,6 @@ realm.run([kadminl, 'cpw', '-pw', 'abcdef', princ], expected_code=1)
 realm.run([kadminl, 'cpw', '-pw', 'Abcdef', princ], expected_code=1)
 realm.run([kadminl, 'cpw', '-pw', 'Abcdef1', princ])
 
-# Test principal renaming and make sure last modified is changed
-def get_princ(princ):
-    out = realm.run([kadminl, 'getprinc', princ])
-    return dict(map(str.strip, x.split(":", 1)) for x in out.splitlines())
-
-realm.addprinc("rename", password('rename'))
-renameprinc = get_princ("rename")
-realm.run([kadminl, '-p', 'fake@KRBTEST.COM', 'renprinc', 'rename', 'renamed'])
-renamedprinc = get_princ("renamed")
-if renameprinc['Last modified'] == renamedprinc['Last modified']:
-    fail('Last modified data not updated when principal was renamed')
-
 # Regression test for #7980 (fencepost when dividing keys up by kvno).
 realm.run([kadminl, 'addprinc', '-randkey', '-e', 'aes256-cts,aes128-cts',
            'kvnoprinc'])

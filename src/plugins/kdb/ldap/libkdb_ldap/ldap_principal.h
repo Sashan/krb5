@@ -114,6 +114,9 @@ krb5_ldap_iterate(krb5_context, char *,
                   krb5_error_code (*)(krb5_pointer, krb5_db_entry *),
                   krb5_pointer, krb5_flags);
 
+krb5_error_code
+krb5_ldap_rename_principal(krb5_context context, krb5_const_principal source,
+                           krb5_const_principal target);
 void
 k5_free_key_data(krb5_int16 n_key_data, krb5_key_data *key_data);
 
@@ -135,6 +138,10 @@ krb5_encode_krbsecretkey(krb5_key_data *key_data, int n_key_data,
 
 krb5_error_code
 krb5_decode_histkey(krb5_context, struct berval **, osa_princ_ent_rec *);
+
+struct berval**
+krb5_encode_krbsecretkey(krb5_key_data *key_data, int n_key_data,
+                         krb5_kvno mkvno);
 
 krb5_error_code
 krb5_decode_krbsecretkey(krb5_context, krb5_db_entry *, struct berval **,
