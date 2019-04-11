@@ -139,7 +139,7 @@ authenticate(krb5_ldap_context *ctx, krb5_ldap_server_handle *server)
     if (ctx->sasl_mech != NULL) {
         st = ldap_sasl_interactive_bind_s(server->ldap_handle, NULL,
                                           ctx->sasl_mech, NULL, NULL,
-                                          LDAP_SASL_QUIET, interact, ctx);
+                                          0, interact, ctx);
         if (st != LDAP_SUCCESS) {
             k5_setmsg(ctx->kcontext, KRB5_KDB_ACCESS_ERROR,
                       _("Cannot bind to LDAP server '%s' with SASL mechanism "
