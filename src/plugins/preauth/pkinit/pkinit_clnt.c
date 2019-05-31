@@ -38,7 +38,14 @@
 #include "k5-json.h"
 
 #include <unistd.h>
+#ifdef SHARED
+#define	_SHARED
+#undef	SHARED
+#endif	/* SHARED */
 #include <dlfcn.h>
+#ifdef _SHARED
+#undef	_SHARED
+#endif	/* _SHARED */
 #include <sys/stat.h>
 
 /**

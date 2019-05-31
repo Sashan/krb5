@@ -795,7 +795,8 @@ kg_ctx_internalize(kcontext, argp, buffer, lenremain)
             }
 
             if (!kret) {
-                kret = kg_queue_internalize(kcontext, &ctx->seqstate,
+                kret = kg_queue_internalize(kcontext,
+                                               (krb5_pointer) &ctx->seqstate,
                                                &bp, &remain);
                 if (kret == EINVAL)
                     kret = 0;

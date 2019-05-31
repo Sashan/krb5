@@ -8,7 +8,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
+#ifdef SHARED
+#undef SHARED
+#define _SHARED
+#endif
 #include <sys/mman.h>
+#ifdef _SHARED
+#undef _SHARED
+#endif
 #include <k5-int.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -489,7 +496,8 @@ ulog_map(krb5_context context, const char *logname, uint32_t ulogentries)
             return errno;
     }
 
-    ulog = mmap(0, MAXLOGLEN, PROT_READ | PROT_WRITE, MAP_SHARED, ulogfd, 0);
+    ulog = (kdb_hlog_t *) mmap(0, MAXLOGLEN, PROT_READ | PROT_WRITE,
+	MAP_SHARED, ulogfd, 0);
     if (ulog == MAP_FAILED) {
         /* Can't map update log file to memory. */
         close(ulogfd);
@@ -681,7 +689,7 @@ ulog_fini(krb5_context context)
     if (log_ctx == NULL)
         return;
     if (log_ctx->ulog != NULL)
-        munmap(log_ctx->ulog, MAXLOGLEN);
+        munmap((void *)log_ctx->ulog, MAXLOGLEN);
     free(log_ctx);
     context->kdblog_context = NULL;
 }

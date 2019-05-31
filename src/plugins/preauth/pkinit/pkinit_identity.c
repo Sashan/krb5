@@ -37,7 +37,14 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef SHARED
+#define	_SHARED
+#undef	SHARED
+#endif	/* SHARED */
 #include <dlfcn.h>
+#ifdef _SHARED
+#undef	_SHARED
+#endif	/* _SHARED */
 #include <unistd.h>
 #include <dirent.h>
 

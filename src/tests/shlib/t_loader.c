@@ -32,8 +32,15 @@
 static int verbose = 1;
 
 #ifdef HAVE_DLFCN_H
-# include <dlfcn.h>
-#endif
+#ifdef SHARED
+#define	_SHARED
+#undef	SHARED
+#endif	/* SHARED */
+#include <dlfcn.h>
+#ifdef _SHARED
+#undef	_SHARED
+#endif	/* _SHARED */
+#endif	/* HAVE_DLFCN_H */
 /* Solaris man page recommends link.h too */
 
 /* lazy = 1 means resolve symbols later, 0 means now; any

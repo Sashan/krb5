@@ -36,7 +36,14 @@
 #include "k5-int.h"
 #include "pkinit_crypto_openssl.h"
 #include "k5-buf.h"
+#ifdef SHARED
+#define	_SHARED
+#undef	SHARED
+#endif	/* SHARED */
 #include <dlfcn.h>
+#ifdef _SHARED
+#undef	_SHARED
+#endif	/* _SHARED */
 #include <unistd.h>
 #include <dirent.h>
 #include <arpa/inet.h>

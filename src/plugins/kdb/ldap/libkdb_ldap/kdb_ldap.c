@@ -135,7 +135,7 @@ has_rootdse_ava(krb5_context context, const char *server_name,
     attrs[0] = (char *)attribute;
     attrs[1] = NULL;
 
-    st = ldap_initialize(&ld, server_name);
+    st = ldap_initialize(&ld, (char *)server_name);
     if (st != LDAP_SUCCESS)
         goto cleanup;
 

@@ -27,8 +27,15 @@
 #include "k5-platform.h"
 #include "k5-plugin.h"
 #if USE_DLOPEN
+#ifdef SHARED
+#define	_SHARED
+#undef	SHARED
+#endif	/* SHARED */
 #include <dlfcn.h>
-#endif
+#ifdef _SHARED
+#undef	_SHARED
+#endif	/* _SHARED */
+#endif	/* USE_DLOPEN */
 #include <sys/types.h>
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>

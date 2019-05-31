@@ -690,11 +690,11 @@ create_server_endpoint(struct netconfig *nconf, struct sockaddr *sock_address,
 	*err = errno;
         com_err(prog, errno, _("Cannot bind transport endpoint to %s"),
                 paddr(sock_address));
-        t_free(tbind, T_BIND);
+        t_free((void *)tbind, T_BIND);
         t_close(fd);
         return -1;
     }
-    t_free(tbind, T_BIND);
+    t_free((void *)tbind, T_BIND);
 
     return fd;
 }
