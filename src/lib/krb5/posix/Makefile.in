@@ -5,11 +5,15 @@ BUILDTOP=$(REL)..$(S)..$(S)..
 ##DOS##PREFIXDIR=posix
 ##DOS##OBJFILE=..\$(OUTPRE)$(PREFIXDIR).lst
 
-STLIBOBJS= # empty... @LIBOBJS@
-OBJS = # empty... @LIBOBJS@
+STLIBOBJS=setenv.o @LIBOBJS@
+
+OBJS = $(OUTPRE)setenv.$(OBJEXT)	@LIBOBJS@
 
 all-unix: all-libobjs
 clean-unix:: clean-libobjs
+
+clean:
+	rm -f setenv.o setenv.so
 
 ##WIN32##LIBOBJS = $(OUTPRE)syslog.obj
 @libobj_frag@

@@ -1,7 +1,7 @@
 mydir=lib$(S)krb5
 BUILDTOP=$(REL)..$(S)..
 LOCALINCLUDES = -I$(srcdir)/ccache -I$(srcdir)/keytab -I$(srcdir)/rcache -I$(srcdir)/os -I$(srcdir)/unicode -I$(srcdir)/../crypto/builtin/
-SUBDIRS= error_tables asn.1 ccache keytab krb os rcache unicode
+SUBDIRS= error_tables asn.1 ccache keytab krb os rcache unicode posix
 WINSUBDIRS= $(SUBDIRS) posix
 DEFINES=-DLOCALEDIR=\"$(KRB5_LOCALEDIR)\"
 
@@ -34,6 +34,7 @@ STOBJLISTS= \
 	rcache/OBJS.ST \
 	unicode/OBJS.ST \
 	os/OBJS.ST \
+	posix/OBJS.ST \
 	$(BUILDTOP)/util/profile/OBJS.ST
 
 SUBDIROBJLISTS= \
@@ -45,6 +46,7 @@ SUBDIROBJLISTS= \
 	rcache/OBJS.ST \
 	unicode/OBJS.ST \
 	os/OBJS.ST \
+	posix/OBJS.ST \
 	$(BUILDTOP)/util/profile/OBJS.ST
 
 OBJS=\
