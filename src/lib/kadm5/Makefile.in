@@ -21,8 +21,8 @@ SRCS =	kadm_err.c \
 	$(srcdir)/chpass_util.c \
 	$(srcdir)/alt_prof.c \
 	$(srcdir)/str_conv.c \
-	$(srcdir)/kadm_host_srv_names.c \
-	$(srcdir)/logger.c
+	$(srcdir)/logger.c \
+	$(srcdir)/kadm_host_srv_names.c
 
 OBJS =	kadm_err.$(OBJEXT) \
 	chpass_util_strings.$(OBJEXT) \

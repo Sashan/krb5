@@ -1,3 +1,4 @@
+free_srv_names
 _kadm5_check_handle
 _kadm5_chpass_principal_util
 kadm5_chpass_principal
@@ -18,8 +19,13 @@ kadm5_free_name_list
 kadm5_free_policy_ent
 kadm5_free_principal_ent
 kadm5_free_strings
+kadm5_get_adm_host_srv_names
 kadm5_get_admin_service_name
 kadm5_get_config_params
+kadm5_get_cpw_host_srv_name
+kadm5_get_cpw_host_srv_names
+kadm5_get_kiprop_host_srv_names
+kadm5_get_master
 kadm5_get_policies
 kadm5_get_policy
 kadm5_get_principal

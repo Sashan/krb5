@@ -243,3 +243,35 @@ kadm5_get_kiprop_host_srv_names(krb5_context context,
     *host_service_names = tmp_srv_names;
     return (KADM5_OK);
 }
+
+/*
+ * Get the host base service name for the changepw principal. Returns
+ * KADM5_OK on success. Caller must free the storage allocated for
+ * host_service_name.
+ *
+ * This is for Solaris 10 compatibility
+ */
+kadm5_ret_t
+kadm5_get_cpw_host_srv_name(krb5_context context,
+			    const char *realm, char **host_service_name)
+{
+	kadm5_ret_t ret;
+	char *name;
+	char *host;
+
+
+	if (ret = kadm5_get_master(context, realm, &host))
+		return (ret);
+
+	name = malloc(strlen(KADM5_CHANGEPW_HOST_SERVICE) + strlen(host) + 2);
+	if (name == NULL) {
+		free(host);
+		return (ENOMEM);
+	}
+	sprintf(name, "%s@%s", KADM5_CHANGEPW_HOST_SERVICE, host);
+	free(host);
+	*host_service_name = name;
+
+	return (KADM5_OK);
+}
+
