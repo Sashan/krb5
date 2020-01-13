@@ -22,7 +22,7 @@ int main(int argc, char **argv)
         com_err("iter-test", ret, "while initializing context");
         exit(1);
     }
-    ret = kadm5_init("admin", "admin", KADM5_ADMIN_SERVICE, 0,
+    ret = kadm5_init("admin", "admin", NULL, 0,
                      KADM5_STRUCT_VERSION, KADM5_API_VERSION_4, NULL,
                      &server_handle);
     if (ret != KADM5_OK) {
