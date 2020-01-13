@@ -73,7 +73,7 @@ delete_keys() {
     }
 
 
-keytab=/etc/krb5.keytab
+keytab=/etc/krb5/krb5.keytab
 interactive=0
 keysalts=""
 
