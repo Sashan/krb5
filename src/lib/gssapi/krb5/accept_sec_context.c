@@ -456,8 +456,6 @@ kg_accept_krb5(minor_status, context_handle,
     const gss_OID_desc *mech_used = NULL;
     OM_uint32 major_status = GSS_S_FAILURE;
     OM_uint32 tmp_minor_status;
-    krb5_error krb_error_data;
-    krb5_data scratch;
     gss_cred_id_t defcred = GSS_C_NO_CREDENTIAL;
     krb5_gss_cred_id_t deleg_cred = NULL;
     krb5int_access kaccess;
@@ -1216,12 +1214,39 @@ fail:
          major_status == GSS_S_CONTINUE_NEEDED)) {
         unsigned int tmsglen;
         int toktype;
+        krb5_error krb_error_data;
+        krb5_data scratch;
 
         /*
          * The client is expecting a response, so we can send an
          * error token back
          */
         memset(&krb_error_data, 0, sizeof(krb_error_data));
+
+        /*
+         * We need to remap error conditions for buggy Windows clients if the
+	 * MS_INTEROP env var has been set.
+         */
+        if ((code == KRB5KRB_AP_ERR_BAD_INTEGRITY ||
+             code == KRB5KRB_AP_ERR_NOKEY || code == KRB5KRB_AP_ERR_BADKEYVER)
+            && getenv("MS_INTEROP")) {
+            code = KRB5KRB_AP_ERR_MODIFIED;
+            major_status = GSS_S_CONTINUE_NEEDED;
+        }
+
+        /*
+         * Set e-data to Windows constant (verified by MSFT).
+         *
+         * This facilitates the Windows CIFS client clock skew
+         * recovery feature.
+         */
+        if (code == KRB5KRB_AP_ERR_SKEW && getenv("MS_INTEROP")) {
+            /* Note that free() must not be called on
+             * krb_error_data.e_data.data */
+            krb_error_data.e_data.data = "\x30\x05\xa1\x03\x02\x01\x02";
+            krb_error_data.e_data.length = 7;
+            major_status = GSS_S_CONTINUE_NEEDED;
+        }
 
         code -= ERROR_TABLE_BASE_krb5;
         if (code < 0 || code > KRB_ERR_MAX)
