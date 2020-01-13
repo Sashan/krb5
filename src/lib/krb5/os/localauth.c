@@ -133,6 +133,10 @@ get_modules(krb5_context context, krb5_plugin_initvt_fn **modules_out)
     if (ret)
         return ret;
 
+    ret = k5_plugin_register_dyn(context, intf, "gsscred", "localauth");
+    if (ret)
+        return ret;
+
     ret = k5_plugin_load_all(context, intf, modules_out);
     if (ret)
         return ret;
