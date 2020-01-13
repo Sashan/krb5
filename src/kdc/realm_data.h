@@ -66,6 +66,7 @@ typedef struct __kdc_realm_data {
      */
     char                *realm_listen;  /* Per-realm KDC UDP listen */
     char                *realm_tcp_listen; /* Per-realm KDC TCP listen */
+    krb5_int32          realm_max_tcp;  /* Maximum TCP connections allowed */
     /*
      * Per-realm parameters.
      */
