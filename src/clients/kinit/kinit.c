@@ -36,6 +36,7 @@
 #include <errno.h>
 #include <com_err.h>
 #include <kerberosv5/private/ktwarn.h>
+#include "../../lib/krb5/prof_solaris.h"
 
 #ifndef _WIN32
 #define GET_PROGNAME(x) (strrchr((x), '/') ? strrchr((x), '/') + 1 : (x))
@@ -120,6 +121,34 @@ struct k_opts
     int canonicalize;
     int enterprise;
 };
+
+int	forwardable_flag = 0;
+int	renewable_flag = 0;
+int	proxiable_flag = 0;
+int	no_address_flag = 0;
+profile_options_boolean	config_option[] = {
+	{ "forwardable",	&forwardable_flag,	0 },
+	{ "renewable",		&renewable_flag,	0 },
+	{ "proxiable",		&proxiable_flag,	0 },
+	{ "no_addresses",	&no_address_flag,	0 },
+	{ NULL,			NULL,			0 }
+};
+
+char	*renew_timeval=NULL;
+char	*life_timeval=NULL;
+int	lifetime_specified;
+int	renewtime_specified;
+
+profile_option_strings	config_times[] = {
+	{ "ticket_lifetime",	&life_timeval,	0 },
+	{ "renew_lifetime",	&renew_timeval,	0 },
+	{ NULL,			NULL,		0 }
+};
+
+char	*realmdef[] = { "realms", NULL, "kinit", NULL };
+char	*appdef[] = { "appdefaults", "kinit", NULL };
+
+#define	krb_realm		(*(realmdef + 1))
 
 struct k5_data
 {
@@ -675,6 +704,8 @@ k5_kinit(struct k_opts *opts, struct k5_data *k5)
     krb5_boolean pwprompt = FALSE;
     krb5_address **addresses = NULL;
     int i;
+    krb5_timestamp now, krb5_kdb_expiration;
+    krb5_deltat lifetime = 0, rlife = 0, krb5_max_duration = 0;
 
     memset(&my_creds, 0, sizeof(my_creds));
 
@@ -682,9 +713,79 @@ k5_kinit(struct k_opts *opts, struct k5_data *k5)
     if (ret)
         goto cleanup;
 
+    /*
+     * If either tkt life or renew life weren't set earlier take common steps to
+     * get the krb5.conf parameter values.
+     * Also, check krb5.conf for proxiable/forwardable/renewable/no_address
+     * parameter values.
+     */
+    if ((ret = krb5_timeofday(k5->ctx, &now))) {
+        com_err(progname, ret, gettext("while getting time of day"));
+        exit(1);
+    }
+
+    krb5_max_duration = ts_delta(KRB5_KDB_EXPIRATION, ts_incr(now, 60 * 60));
+
+    if (opts->lifetime == 0 || opts->rlife == 0) {
+
+	krb_realm = krb5_princ_realm(k5->ctx, k5->me)->data;
+	/* realm params take precedence */
+	profile_get_options_string(k5->ctx->profile, realmdef, config_times);
+	profile_get_options_string(k5->ctx->profile, appdef, config_times);
+
+	/* if the input opts doesn't have lifetime set and the krb5.conf
+	 * parameter has been set, use that.
+	 */
+	if (opts->lifetime == 0 && life_timeval != NULL) {
+	    ret = krb5_string_to_deltat(life_timeval, &lifetime);
+	    if (ret != 0 || lifetime == 0 ||
+		!ts_within(now, ts_incr(now, lifetime), krb5_max_duration)) {
+		    fprintf(stderr, gettext("Bad max_life "
+			    "value in Kerberos config file %s\n"),
+			    life_timeval);
+		    exit(1);
+	    }
+	    opts->lifetime = lifetime;
+	}
+	if (opts->rlife == 0 && renew_timeval != NULL) {
+	    ret = krb5_string_to_deltat(renew_timeval, &rlife);
+	    if (ret != 0 || rlife == 0 ||
+		!ts_within(now, ts_incr(now, rlife), krb5_max_duration)) {
+		    fprintf(stderr, gettext("Bad max_renewable_life "
+			    "value in Kerberos config file %s\n"),
+			    renew_timeval);
+		    exit(1);
+	    }
+	    opts->rlife = rlife;
+	}
+    }
+
+    profile_get_options_boolean(k5->ctx->profile, 
+				realmdef, config_option); 
+    profile_get_options_boolean(k5->ctx->profile, 
+				appdef, config_option); 
+
+
+    /* cmdline opts take precedence over krb5.conf file values */
+    if (!opts->not_proxiable && proxiable_flag) {
+        krb5_get_init_creds_opt_set_proxiable(options, 1);
+    }
+    if (!opts->not_forwardable && forwardable_flag) {
+        krb5_get_init_creds_opt_set_forwardable(options, 1);
+    }
+    if (no_address_flag) {
+        /* cmdline opts will overwrite this below if needbe */
+        krb5_get_init_creds_opt_set_address_list(options, NULL);
+    }
+
+    /*
+      From this point on, we can goto cleanup because my_creds is
+      initialized.
+    */
+
     if (opts->lifetime)
         krb5_get_init_creds_opt_set_tkt_life(options, opts->lifetime);
-    if (opts->rlife)
+    if (opts->rlife || renewable_flag)
         krb5_get_init_creds_opt_set_renew_life(options, opts->rlife);
     if (opts->forwardable)
         krb5_get_init_creds_opt_set_forwardable(options, 1);

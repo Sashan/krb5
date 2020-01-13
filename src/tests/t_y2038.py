@@ -36,7 +36,15 @@ realm.run([kadminl, 'modprinc', '-pwexpire', '662256600 seconds', 'user'])
 out = realm.kinit(realm.user_princ, password('user'))
 if 'will expire in less than one hour' not in out:
     fail('password expiration message')
-year = int(out.split()[-1])
+#
+# On solaris output looks as follows:
+#    Warning: Your password will expire in\
+#    less than one hour on Wed Jan 12 01:28:52 2039
+#    kinit:  no ktkt_warnd warning possible
+#
+# therefore we must jump back by -6 words
+#
+year = int(out.split()[-6])
 if year < 2038 or year > 9999:
     fail('password expiration year')
 
