@@ -108,6 +108,7 @@ krb5_ldap_cleanup_handles(krb5_ldap_server_info *ldap_server_info)
         ldap_server_handle = ldap_server_info->ldap_server_handles;
         ldap_server_info->ldap_server_handles = ldap_server_handle->next;
         /* ldap_unbind_s(ldap_server_handle); */
+        ldap_unbind_s(ldap_server_handle->ldap_handle);
         free (ldap_server_handle);
         ldap_server_handle = NULL;
     }
