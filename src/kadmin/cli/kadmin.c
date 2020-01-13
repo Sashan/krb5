@@ -311,7 +311,7 @@ kadmin_startup(int argc, char *argv[], char **request_out, char ***args_out)
     }
 
     while ((optchar = getopt(argc, argv,
-                             "+x:r:p:knq:w:d:s:mc:t:e:ON")) != EOF) {
+                             "+x:r:p:kq:w:d:s:mc:t:e:ON")) != EOF) {
         switch (optchar) {
         case 'x':
             db_args_size++;
