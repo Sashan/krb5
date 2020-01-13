@@ -268,6 +268,15 @@ typedef void
                                    kadm5_auth_moddata data,
                                    struct kadm5_auth_restrictions *rs);
 
+/* Optional: authorize an migrate-principal operation, and optionally generate
+ * restrictions. (Solaris specific) */
+typedef krb5_error_code
+(*kadm5_auth_migrateprinc_fn)(krb5_context context, kadm5_auth_moddata data,
+                          krb5_const_principal client,
+                          krb5_const_principal target,
+                          const struct _kadm5_principal_ent_t *ent, long mask,
+                          struct kadm5_auth_restrictions **rs_out);
+
 /* kadm5_auth vtable for major version 1. */
 typedef struct kadm5_auth_vtable_st {
     const char *name;           /* Mandatory: name of module. */
@@ -296,6 +305,8 @@ typedef struct kadm5_auth_vtable_st {
     kadm5_auth_listpols_fn listpols;
 
     kadm5_auth_iprop_fn iprop;
+
+    kadm5_auth_migrateprinc_fn migrate;
 
     kadm5_auth_end_fn end;
 
