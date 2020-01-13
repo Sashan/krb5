@@ -706,7 +706,7 @@ proc get_hostname { } {
 
     envstack_push
     setup_runtime_env
-    catch "exec $RESOLVE -q >$tmppwd/hostname" exec_output
+    catch "exec $RESOLVE -d >$tmppwd/hostname" exec_output
     envstack_pop
     if ![string match "" $exec_output] {
 	verbose -log $exec_output
