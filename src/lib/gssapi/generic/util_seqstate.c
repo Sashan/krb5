@@ -161,3 +161,9 @@ g_seqstate_internalize(g_seqnum_state *state_out, unsigned char **buf,
     *state_out = state;
     return 0;
 }
+
+uint64_t
+g_seqstate_rebase(g_seqnum_state state)
+{
+	return (state->base + state->next);
+}

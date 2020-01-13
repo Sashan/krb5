@@ -437,6 +437,7 @@ kg_accept_krb5(minor_status, context_handle,
     char *sptr;
     OM_uint32 tmp;
     size_t md5len;
+    int bigend = 0;
     krb5_gss_cred_id_t cred = 0;
     krb5_data ap_rep, ap_req;
     unsigned int i;
@@ -703,6 +704,7 @@ kg_accept_krb5(minor_status, context_handle,
         gss_flags = GSS_C_REPLAY_FLAG | GSS_C_SEQUENCE_FLAG;
         if (ap_req_options & AP_OPTS_MUTUAL_REQUIRED)
             gss_flags |= GSS_C_MUTUAL_FLAG;
+	bigend = 0;
     } else {
         /* gss krb5 v1 */
 
@@ -730,14 +732,22 @@ kg_accept_krb5(minor_status, context_handle,
         }
 
         ptr = (unsigned char *) authdat->checksum->contents;
+	bigend = 0;
 
-        TREAD_INT(ptr, tmp, 0);
+        TREAD_INT(ptr, tmp, bigend);
 
-        if (tmp != md5len) {
-            code = KG_BAD_LENGTH;
-            major_status = GSS_S_FAILURE;
-            goto fail;
-        }
+	if (tmp != md5len) {
+	    ptr = (unsigned char *) authdat->checksum->contents;
+	    bigend = 1;
+
+	    TREAD_INT(ptr, tmp, bigend);
+
+	    if (tmp != md5len) {
+		code = KG_BAD_LENGTH;
+		major_status = GSS_S_FAILURE;
+		goto fail;
+	    }
+	}
 
         /*
           The following section of code attempts to implement the
@@ -778,7 +788,7 @@ kg_accept_krb5(minor_status, context_handle,
 
         /* Read the token flags.  Remember if GSS_C_DELEG_FLAG was set, but
          * mask it out until we actually read a delegated credential. */
-        TREAD_INT(ptr, gss_flags, 0);
+        TREAD_INT(ptr, gss_flags, bigend);
         token_deleg_flag = (gss_flags & GSS_C_DELEG_FLAG);
         gss_flags &= ~GSS_C_DELEG_FLAG;
 
@@ -787,8 +797,8 @@ kg_accept_krb5(minor_status, context_handle,
         i = authdat->checksum->length - 24;
         if (i && token_deleg_flag) {
             if (i >= 4) {
-                TREAD_INT16(ptr, option_id, 0);
-                TREAD_INT16(ptr, option.length, 0);
+                TREAD_INT16(ptr, option_id, bigend);
+                TREAD_INT16(ptr, option.length, bigend);
                 i -= 4;
 
                 if (i < option.length) {
@@ -885,6 +895,7 @@ kg_accept_krb5(minor_status, context_handle,
                                       GSS_C_DCE_STYLE | GSS_C_IDENTIFY_FLAG |
                                       GSS_C_EXTENDED_ERROR_FLAG)));
     ctx->seed_init = 0;
+    ctx->big_endian = bigend;
     ctx->cred_rcache = cred_rcache;
 
     /* XXX move this into gss_name_t */

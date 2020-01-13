@@ -116,6 +116,14 @@
 #define g_seqstate_size         gssint_g_seqstate_size
 #define g_seqstate_externalize  gssint_g_seqstate_externalize
 #define g_seqstate_internalize  gssint_g_seqstate_internalize
+#define g_seqstate_rebase       gssint_g_seqstate_rebase
+#define	g_order_init		gssint_g_order_init
+#define	g_order_check		gssint_g_order_check
+#define	g_order_free		gssint_g_order_free
+#define	g_queue_size		gssint_g_queue_size
+#define	g_queue_externalize	gssint_g_queue_externalize
+#define	g_queue_internalize	gssint_g_queue_internalize
+#define	g_queue_firstnum	gssint_g_queue_firstnum
 #define g_canonicalize_host     gssint_g_canonicalize_host
 #define g_local_host_name       gssint_g_local_host_name
 #define g_strdup                gssint_g_strdup
@@ -184,6 +192,21 @@ long g_seqstate_externalize(g_seqnum_state state, unsigned char **buf,
                             size_t *lenremain);
 long g_seqstate_internalize(g_seqnum_state *state_out, unsigned char **buf,
                             size_t *lenremain);
+uint64_t g_seqstate_rebase(g_seqnum_state state);
+
+gss_int32 g_order_init (void **queue, uint64_t seqnum,
+				  int do_replay, int do_sequence, int wide);
+
+gss_int32 g_order_check (void **queue, uint64_t seqnum);
+
+void g_order_free (void **queue);
+
+gss_uint32 g_queue_size(void *vqueue, size_t *sizep);
+gss_uint32 g_queue_externalize(void *vqueue, unsigned char **buf,
+			       size_t *lenremain);
+gss_uint32 g_queue_internalize(void **vqueue, unsigned char **buf,
+			       size_t *lenremain);
+uint64_t g_queue_firstnum(void **vqueue);
 
 char *g_strdup (char *str);
 
