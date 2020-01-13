@@ -80,6 +80,11 @@ load_audit_modules(krb5_context context)
     if (context == NULL || handles != NULL)
         return EINVAL;
 
+    ret = k5_plugin_register_dyn(context, PLUGIN_INTERFACE_AUDIT, "solaris",
+	"audit");
+    if (ret)
+	return ret;
+
     /* Get audit plugin vtable. */
     ret = k5_plugin_load_all(context, PLUGIN_INTERFACE_AUDIT, &modules);
     if (ret)
