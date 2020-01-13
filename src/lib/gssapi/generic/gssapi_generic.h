@@ -38,8 +38,10 @@
 #define GSSAPIGENERIC_END_DECLS
 #endif
 
+#ifndef GSS_EMPTY_BUFFER
 #define GSS_EMPTY_BUFFER(buf)   ((buf) == NULL ||                       \
                                  (buf)->value == NULL || (buf)->length == 0)
+#endif
 
 GSSAPIGENERIC_BEGIN_DECLS
 
