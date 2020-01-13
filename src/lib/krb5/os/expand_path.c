@@ -291,7 +291,7 @@ static krb5_error_code
 expand_userid(krb5_context context, PTYPE param, const char *postfix,
               char **str)
 {
-    if (asprintf(str, "%lu", (unsigned long)getuid()) < 0)
+    if (asprintf(str, "%lu", (unsigned long)krb5_getuid()) < 0)
         return ENOMEM;
     return 0;
 }
