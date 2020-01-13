@@ -362,6 +362,13 @@ typedef struct _krb5_keyblock {
     krb5_enctype enctype;
     unsigned int length;
     krb5_octet *contents;
+    /*
+     * Solaris Kerberos: for backwards ABI compatibility.  The following fields
+     * are not used by the MIT code:
+     */
+    int   *dk_list; /* krb5_dk_node */
+    unsigned long hKey; /* CK_OBJECT_HANDLE */
+    int pid;
 } krb5_keyblock;
 
 struct krb5_key_st;
