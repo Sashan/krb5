@@ -10,7 +10,7 @@ def make_client(name):
     ccache = os.path.join(realm.testdir,
                           'kadmin_ccache_' + name.replace('/', '_'))
     realm.kinit(name, password(name),
-                flags=['-S', 'kadmin/admin', '-c', ccache])
+                flags=['-S', 'kadmin/' + hostname, '-c', ccache])
     return ccache
 
 def kadmin_as(client, query, **kwargs):
@@ -298,9 +298,9 @@ os.remove(realm.keytab)
 
 # Verify that self-service key changes require an initial ticket.
 realm.run([kadminl, 'cpw', '-pw', password('none'), 'none'])
-realm.run([kadminl, 'modprinc', '+allow_tgs_req', 'kadmin/admin'])
+realm.run([kadminl, 'modprinc', '+allow_tgs_req', 'kadmin/' + hostname])
 realm.kinit('none', password('none'))
-realm.run([kvno, 'kadmin/admin'])
+realm.run([kvno, 'kadmin/' + hostname])
 msg = 'Operation requires initial ticket'
 realm.run([kadmin, '-c', realm.ccache, 'cpw', '-pw', 'newpw', 'none'],
           expected_code=1, expected_msg=msg)

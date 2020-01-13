@@ -21,6 +21,7 @@ SRCS =	kadm_err.c \
 	$(srcdir)/chpass_util.c \
 	$(srcdir)/alt_prof.c \
 	$(srcdir)/str_conv.c \
+	$(srcdir)/kadm_host_srv_names.c \
 	$(srcdir)/logger.c
 
 OBJS =	kadm_err.$(OBJEXT) \
@@ -30,6 +31,7 @@ OBJS =	kadm_err.$(OBJEXT) \
 	chpass_util.$(OBJEXT) \
 	alt_prof.$(OBJEXT) \
 	str_conv.$(OBJEXT) \
+	kadm_host_srv_names.$(OBJEXT) \
 	logger.$(OBJEXT)
 
 STLIBOBJS = \
@@ -40,6 +42,7 @@ STLIBOBJS = \
 	chpass_util.o \
 	alt_prof.o \
 	str_conv.o \
+	kadm_host_srv_names.o \
 	logger.o
 
 HDRDIR=$(BUILDTOP)/include/kadm5

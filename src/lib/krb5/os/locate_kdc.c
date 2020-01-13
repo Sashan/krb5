@@ -837,6 +837,14 @@ k5_locate_kdc(krb5_context context, const krb5_data *realm,
     return k5_locate_server(context, realm, serverlist, stype, no_udp);
 }
 
+krb5_error_code
+k5_locate_kadmin(krb5_context context, const krb5_data *realm,
+                 struct serverlist *serverlist)
+{
+    return k5_locate_server(context, realm, serverlist, locate_service_kadmin,
+                            1);
+}
+
 krb5_boolean
 k5_kdc_is_master(krb5_context context, const krb5_data *realm,
                  struct server_entry *server)

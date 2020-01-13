@@ -57,7 +57,7 @@ struct sendto_callback_context {
  * Wrapper function for the two backends
  */
 
-static krb5_error_code
+krb5_error_code
 locate_kpasswd(krb5_context context, const krb5_data *realm,
                struct serverlist *serverlist, krb5_boolean no_udp)
 {

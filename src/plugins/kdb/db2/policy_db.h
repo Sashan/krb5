@@ -28,8 +28,8 @@
 
    A better fix might be for db.h to include netinet/in.h if that's
    where we find u_int32_t.  */
-#include <gssrpc/types.h>
-#include <gssrpc/xdr.h>
+#include <rpc/types.h>
+#include <rpc/xdr.h>
 #include <db.h>
 #include "adb_err.h"
 #include <com_err.h>

@@ -233,8 +233,7 @@ kadm5_ret_t kadm5_init(krb5_context context, char *client_name, char *pass,
 
 #define IPROP_REQUIRED_PARAMS                   \
     (KADM5_CONFIG_IPROP_ENABLED |               \
-     KADM5_CONFIG_IPROP_LOGFILE |               \
-     KADM5_CONFIG_IPROP_PORT)
+     KADM5_CONFIG_IPROP_LOGFILE)
 
     if ((handle->params.mask & REQUIRED_PARAMS) != REQUIRED_PARAMS) {
         kadm5_free_config_params(handle->context, &handle->params);

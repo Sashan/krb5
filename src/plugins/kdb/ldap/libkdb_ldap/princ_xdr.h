@@ -4,7 +4,7 @@
 #include <sys/types.h>
 #include <krb5.h>
 #include <kdb.h>
-#include <gssrpc/rpc.h>
+#include <rpc/rpc.h>
 
 #ifdef HAVE_MEMORY_H
 #include <memory.h>
