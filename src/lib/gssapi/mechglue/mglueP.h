@@ -65,6 +65,38 @@ typedef struct gss_cred_id_struct {
 } gss_union_cred_desc, *gss_union_cred_t;
 
 /*
+ * qop configuration file handling.
+ */
+#define	MAX_QOP_NUM_PAIRS	128
+#define	MAX_QOPS_PER_MECH	128
+
+typedef struct _qop_num {
+	char *qop;
+	OM_uint32 num;
+	char *mech;
+} qop_num;
+
+OM_uint32
+gssint_qop_to_num(
+	char		*qop,		/* input qop string */
+	char		*mech,		/* input mech string */
+	OM_uint32	*num		/* output qop num */
+);
+
+OM_uint32
+gssint_num_to_qop(
+	char		*mech,		/* input mech string */
+	OM_uint32	num,		/* input qop num */
+	char		**qop		/* output qop name */
+);
+
+OM_uint32
+gssint_get_mech_info(
+	char		*mech,		/* input mech string */
+	char		**qops		/* buffer for return qops */
+);
+
+/*
  * Rudimentary pointer validation macro to check whether the
  * "loopback" field of an opaque struct points back to itself.  This
  * field also catches some programming errors where an opaque pointer
