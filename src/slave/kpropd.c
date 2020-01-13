@@ -636,7 +636,7 @@ do_iprop()
     kadm5_ret_t retval;
     krb5_principal iprop_svc_principal;
     void *server_handle = NULL;
-    char *iprop_svc_princstr = NULL, *master_svc_princstr = NULL;
+    char *iprop_svc_princstr = NULL, **master_svc_princstrs = NULL;
     unsigned int pollin, backoff_time;
     int backoff_cnt = 0, reinit_cnt = 0;
     struct timeval iprop_start, iprop_end;
@@ -655,9 +655,9 @@ do_iprop()
     if (pollin == 0)
         pollin = 10;
 
-    if (master_svc_princstr == NULL) {
+    if (master_svc_princstrs == NULL) {
         retval = kadm5_get_kiprop_host_srv_names(kpropd_context, realm,
-						 &kiprop_srv_names);
+						 &master_svc_princstrs);
         if (retval) {
             com_err(progname, retval,
                     _("%s: unable to get kiprop host based "
@@ -665,15 +665,6 @@ do_iprop()
                     progname, realm);
             return retval;
         }
-        master_svc_princstr = strdup(kiprop_srv_names[0]);
-	free_srv_names(kiprop_srv_names);
-	if (master_svc_princstr == NULL) {
-            com_err(progname, retval,
-                    _("%s: unable to allocate memory for kiprop host based "
-                      "service name for realm %s\n"),
-                    progname, def_realm);
-            return ENOMEM;
-	}
     }
 
     retval = sn2princ_realm(kpropd_context, NULL, KIPROP_SVC_NAME, realm,
@@ -702,9 +693,9 @@ reinit:
         fprintf(stderr, _("Initializing kadm5 as client %s\n"),
                 iprop_svc_princstr);
     }
-    retval = kadm5_init_with_skey(kpropd_context, iprop_svc_princstr,
+    retval = kadm5_init_with_skey_mm(kpropd_context, iprop_svc_princstr,
                                   srvtab,
-                                  master_svc_princstr,
+                                  master_svc_princstrs,
                                   &params,
                                   KADM5_STRUCT_VERSION,
                                   KADM5_API_VERSION_4,
@@ -1002,7 +993,7 @@ error:
     syslog(LOG_ERR, _("ERROR returned by master KDC, bailing.\n"));
 done:
     free(iprop_svc_princstr);
-    free(master_svc_princstr);
+    free_srv_names(master_svc_princstrs);
     krb5_free_default_realm(kpropd_context, def_realm);
     kadm5_destroy(server_handle);
     krb5_db_fini(kpropd_context);

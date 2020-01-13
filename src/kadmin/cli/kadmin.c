@@ -298,7 +298,7 @@ kadmin_startup(int argc, char *argv[], char **request_out, char ***args_out)
     char **db_args = NULL;
     int db_args_size = 0;
     char *db_name = NULL;
-    char *svcname, *realm;
+    char **svcnames = NULL, *realm;
 
     memset(&params, 0, sizeof(params));
 
@@ -412,11 +412,6 @@ kadmin_startup(int argc, char *argv[], char **request_out, char ***args_out)
 
     params.mask |= KADM5_CONFIG_REALM;
     params.realm = def_realm;
-
-    if (params.mask & KADM5_CONFIG_OLD_AUTH_GSSAPI)
-        svcname = KADM5_ADMIN_SERVICE;
-    else
-        svcname = NULL;
 
     /*
      * Set cc to an open credentials cache, either specified by the -c
@@ -546,13 +541,14 @@ kadmin_startup(int argc, char *argv[], char **request_out, char ***args_out)
     if (ccache_name) {
         info(_("Authenticating as principal %s with existing "
                "credentials.\n"), princstr);
-        retval = kadm5_init_with_creds(context, princstr, cc, svcname, &params,
+        retval = kadm5_init_with_creds_mm(context, princstr, cc, svcnames,
+                                       &params,
                                        KADM5_STRUCT_VERSION,
                                        KADM5_API_VERSION_4, db_args, &handle);
     } else if (use_anonymous) {
         info(_("Authenticating as principal %s with password; "
                "anonymous requested.\n"), princstr);
-        retval = kadm5_init_anonymous(context, princstr, svcname, &params,
+        retval = kadm5_init_anonymous_mm(context, princstr, svcnames, &params,
                                       KADM5_STRUCT_VERSION,
                                       KADM5_API_VERSION_4, db_args, &handle);
     } else if (use_keytab) {
@@ -563,17 +559,20 @@ kadmin_startup(int argc, char *argv[], char **request_out, char ***args_out)
             info(_("Authenticating as principal %s with default keytab.\n"),
                  princstr);
         }
-        retval = kadm5_init_with_skey(context, princstr, keytab_name, svcname,
+        retval = kadm5_init_with_skey_mm(context, princstr, keytab_name,
+                                      svcnames,
                                       &params, KADM5_STRUCT_VERSION,
                                       KADM5_API_VERSION_4, db_args, &handle);
     } else {
         info(_("Authenticating as principal %s with password.\n"),
              princstr);
-        retval = kadm5_init_with_password(context, princstr, password, svcname,
+        retval = kadm5_init_with_password_mm(context, princstr, password,
+                                          svcnames,
                                           &params, KADM5_STRUCT_VERSION,
                                           KADM5_API_VERSION_4, db_args,
                                           &handle);
     }
+    free_srv_names(svcnames);
     if (retval) {
         com_err(whoami, retval, _("while initializing %s interface"), whoami);
         if (retval == KADM5_BAD_CLIENT_PARAMS ||

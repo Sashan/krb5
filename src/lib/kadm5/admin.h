@@ -352,6 +352,51 @@ kadm5_ret_t    kadm5_init_with_creds(krb5_context context,
                                      krb5_ui_4 api_version,
                                      char **db_args,
                                      void **server_handle);
+kadm5_ret_t kadm5_init_with_creds_mm(krb5_context context,
+                                     char *client_name,
+                                     krb5_ccache ccache,
+                                     char **svcnames,
+                                     kadm5_config_params *params,
+                                     krb5_ui_4 struct_version,
+                                     krb5_ui_4 api_version,
+                                     char **db_args,
+                                     void **server_handle);
+kadm5_ret_t kadm5_init_with_password_mm(krb5_context context,
+                                        char *client_name,
+                                        char *pass,
+                                        char **svcnames,
+                                        kadm5_config_params *params,
+                                        krb5_ui_4 struct_version,
+                                        krb5_ui_4 api_version,
+                                        char **db_args,
+                                        void **server_handle);
+kadm5_ret_t kadm5_init_anonymous_mm(krb5_context context,
+                                    char *client_name,
+                                    char **svcnames,
+                                    kadm5_config_params *params,
+                                    krb5_ui_4 struct_version,
+                                    krb5_ui_4 api_version,
+                                    char **db_args,
+                                    void **server_handle);
+kadm5_ret_t kadm5_init_mm(krb5_context context,
+                          char *client_name,
+                          char *pass,
+                          char **svcnames,
+                          kadm5_config_params *params,
+                          krb5_ui_4 struct_version,
+                          krb5_ui_4 api_version,
+                          char **db_args,
+                          void **server_handle);
+kadm5_ret_t kadm5_init_with_skey_mm(krb5_context context,
+                                    char *client_name,
+                                    char *keytab,
+                                    char **svcnames,
+                                    kadm5_config_params *params,
+                                    krb5_ui_4 struct_version,
+                                    krb5_ui_4 api_version,
+                                    char **db_args,
+                                    void **server_handle);
+
 kadm5_ret_t    kadm5_lock(void *server_handle);
 kadm5_ret_t    kadm5_unlock(void *server_handle);
 kadm5_ret_t    kadm5_flush(void *server_handle);

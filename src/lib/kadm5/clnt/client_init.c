@@ -55,7 +55,7 @@ enum init_type { INIT_PASS, INIT_SKEY, INIT_CREDS, INIT_ANONYMOUS };
 
 static kadm5_ret_t
 init_any(krb5_context context, char *client_name, enum init_type init_type,
-         char *pass, krb5_ccache ccache_in, char *service_name,
+         char *pass, krb5_ccache ccache_in, char **service_names,
          kadm5_config_params *params, krb5_ui_4 struct_version,
          krb5_ui_4 api_version, char **db_args, void **server_handle);
 
@@ -87,8 +87,25 @@ kadm5_init_with_creds(krb5_context context, char *client_name,
                       krb5_ui_4 api_version, char **db_args,
                       void **server_handle)
 {
+    char *svcnames[2];
+
+    svcnames[0] = service_name;
+    svcnames[1] = NULL;
+
     return init_any(context, client_name, INIT_CREDS, NULL, ccache,
-                    service_name, params, struct_version, api_version, db_args,
+                    svcnames, params, struct_version, api_version, db_args,
+                    server_handle);
+}
+
+kadm5_ret_t
+kadm5_init_with_creds_mm(krb5_context context, char *client_name,
+                      krb5_ccache ccache, char **svcnames,
+                      kadm5_config_params *params, krb5_ui_4 struct_version,
+                      krb5_ui_4 api_version, char **db_args,
+                      void **server_handle)
+{
+    return init_any(context, client_name, INIT_CREDS, NULL, ccache,
+                    svcnames, params, struct_version, api_version, db_args,
                     server_handle);
 }
 
@@ -99,7 +116,24 @@ kadm5_init_with_password(krb5_context context, char *client_name,
                          krb5_ui_4 api_version, char **db_args,
                          void **server_handle)
 {
-    return init_any(context, client_name, INIT_PASS, pass, NULL, service_name,
+    char *svcnames[2];
+
+    svcnames[0] = service_name;
+    svcnames[1] = NULL;
+
+    return init_any(context, client_name, INIT_PASS, pass, NULL, svcnames,
+                    params, struct_version, api_version, db_args,
+                    server_handle);
+}
+
+kadm5_ret_t
+kadm5_init_with_password_mm(krb5_context context, char *client_name,
+                         char *pass, char **svcnames,
+                         kadm5_config_params *params, krb5_ui_4 struct_version,
+                         krb5_ui_4 api_version, char **db_args,
+                         void **server_handle)
+{
+    return init_any(context, client_name, INIT_PASS, pass, NULL, svcnames,
                     params, struct_version, api_version, db_args,
                     server_handle);
 }
@@ -110,8 +144,24 @@ kadm5_init_anonymous(krb5_context context, char *client_name,
                      krb5_ui_4 struct_version, krb5_ui_4 api_version,
                      char **db_args, void **server_handle)
 {
+    char *svcnames[2];
+
+    svcnames[0] = service_name;
+    svcnames[1] = NULL;
+
     return init_any(context, client_name, INIT_ANONYMOUS, NULL, NULL,
-                    service_name, params, struct_version, api_version,
+                    svcnames, params, struct_version, api_version,
+                    db_args, server_handle);
+}
+
+kadm5_ret_t
+kadm5_init_anonymous_mm(krb5_context context, char *client_name,
+                     char **svcnames, kadm5_config_params *params,
+                     krb5_ui_4 struct_version, krb5_ui_4 api_version,
+                     char **db_args, void **server_handle)
+{
+    return init_any(context, client_name, INIT_ANONYMOUS, NULL, NULL,
+                    svcnames, params, struct_version, api_version,
                     db_args, server_handle);
 }
 
@@ -121,7 +171,23 @@ kadm5_init(krb5_context context, char *client_name, char *pass,
            krb5_ui_4 struct_version, krb5_ui_4 api_version, char **db_args,
            void **server_handle)
 {
-    return init_any(context, client_name, INIT_PASS, pass, NULL, service_name,
+    char *svcnames[2];
+
+    svcnames[0] = service_name;
+    svcnames[1] = NULL;
+
+    return init_any(context, client_name, INIT_PASS, pass, NULL, svcnames,
+                    params, struct_version, api_version, db_args,
+                    server_handle);
+}
+
+kadm5_ret_t
+kadm5_init_mm(krb5_context context, char *client_name, char *pass,
+           char **svcnames, kadm5_config_params *params,
+           krb5_ui_4 struct_version, krb5_ui_4 api_version, char **db_args,
+           void **server_handle)
+{
+    return init_any(context, client_name, INIT_PASS, pass, NULL, svcnames,
                     params, struct_version, api_version, db_args,
                     server_handle);
 }
@@ -133,8 +199,25 @@ kadm5_init_with_skey(krb5_context context, char *client_name,
                      krb5_ui_4 api_version, char **db_args,
                      void **server_handle)
 {
+    char *svcnames[2];
+
+    svcnames[0] = service_name;
+    svcnames[1] = NULL;
+
     return init_any(context, client_name, INIT_SKEY, keytab, NULL,
-                    service_name, params, struct_version, api_version, db_args,
+                    svcnames, params, struct_version, api_version, db_args,
+                    server_handle);
+}
+
+kadm5_ret_t
+kadm5_init_with_skey_mm(krb5_context context, char *client_name,
+                     char *keytab, char **svcnames,
+                     kadm5_config_params *params, krb5_ui_4 struct_version,
+                     krb5_ui_4 api_version, char **db_args,
+                     void **server_handle)
+{
+    return init_any(context, client_name, INIT_SKEY, keytab, NULL,
+                    svcnames, params, struct_version, api_version, db_args,
                     server_handle);
 }
 
@@ -505,9 +588,35 @@ cleanup:
 	return (code);
 }
 
+/* utility function used below */
+static void
+clean_up(kadm5_server_handle_t handle,
+         krb5_principal *server,
+         krb5_ccache *ccache)
+{
+    if (handle->destroy_cache && handle->cache_name) {
+        if (krb5_cc_resolve(handle->context,
+                            handle->cache_name, ccache) == 0)
+            (void) krb5_cc_destroy (handle->context, *ccache);
+    }
+
+    free(handle->cache_name);
+    handle->cache_name = NULL;
+
+    if (handle->clnt && handle->clnt->cl_auth)
+        AUTH_DESTROY(handle->clnt->cl_auth);
+    if (handle->clnt) {
+        clnt_destroy(handle->clnt);
+        handle->clnt = NULL;
+    }
+
+    krb5_free_principal(handle->context, *server);
+    *server = NULL;
+}
+
 static kadm5_ret_t
 init_any(krb5_context context, char *client_name, enum init_type init_type,
-         char *pass, krb5_ccache ccache_in, char *svcname,
+         char *pass, krb5_ccache ccache_in, char **svcnames_in,
          kadm5_config_params *params_in, krb5_ui_4 struct_version,
          krb5_ui_4 api_version, char **db_args, void **server_handle)
 {
@@ -525,6 +634,10 @@ init_any(krb5_context context, char *client_name, enum init_type init_type,
 
     int code = 0;
     generic_ret *r;
+    char **kadmin_srv_names = NULL;
+    char *tmp_srv_names[2] = {NULL, NULL};
+    char **svcname_ptr;
+    int i;
 
     initialize_ovk_error_table();
 /*      initialize_adb_error_table(); */
@@ -592,33 +705,55 @@ init_any(krb5_context context, char *client_name, enum init_type init_type,
     if (code)
         goto error;
 
-    /* NULL svcname means use host-based. */
-    if (svcname == NULL) {
-	char **kadmin_srv_names;
-
-	code = kadm5_get_adm_host_srv_names(context, handle->params.realm,
-	    &kadmin_srv_names);
-        if (code)
-            goto error;
-	svcname = strdup(kadmin_srv_names[0]);
-	free_srv_names(kadmin_srv_names);
-	if (svcname == NULL) {
-	    code = ENOMEM;
-            goto error;
-	}
+    if (svcnames_in == NULL || svcnames_in[0] == NULL) {
+        if (params_in && params_in->mask & KADM5_CONFIG_ADMIN_SERVER &&
+            params_in->admin_server != NULL) {
+            /* User passed in a admin server host name so use that */
+            if (asprintf(&tmp_srv_names[0], "%s@%s", KADM5_ADMIN_HOST_SERVICE,
+                         params_in->admin_server) == -1) {
+                code = ENOMEM;
+                goto error;
+            }
+            svcname_ptr = tmp_srv_names;
+        } else {
+            /* Otherwise punt and get the admin server names. */
+            code = kadm5_get_adm_host_srv_names(context, handle->params.realm,
+                                                &kadmin_srv_names);
+            if (code)
+                goto error;
+            svcname_ptr = kadmin_srv_names;
+        }
+    } else {
+        svcname_ptr = svcnames_in;
     }
 
-    /* Get credentials. */
-    code = get_init_creds(handle, client, init_type, pass, ccache_in,
-                          svcname, handle->params.realm, &server);
+    for (i = 0; svcname_ptr[i]; i++) {
+        /* Get credentials. */
+        code = get_init_creds(handle, client, init_type, pass, ccache_in,
+                              svcname_ptr[i], handle->params.realm, &server);
+        if (code) {
+            if (code == KADM5_SECURE_PRINC_MISSING ||
+                code == KRB5_ERR_BAD_HOSTNAME) {
+                /* clean up for another go around */
+                clean_up(handle, &server, &ccache);
+                continue;
+            } else
+                goto error;
+        }
+
+        code = _kadm5_initialize_rpcsec_gss_handle(handle, client_name,
+                                                   svcname_ptr[i]);
+        if (code) {
+            /* clean up for another go around */
+            clean_up(handle, &server, &ccache);
+        } else {
+            /* inited the rpcsec_gss handle, can stop looping now */
+            break;
+        }
+    }
+
     if (code)
         goto error;
-
-    code = _kadm5_initialize_rpcsec_gss_handle(handle, client_name,
-                                               svcname);
-    if (code != 0) {
-        goto error;
-    }
 
     *server_handle = (void *) handle;
 
@@ -653,6 +788,8 @@ cleanup:
     krb5_free_principal(handle->context, server);
     if (code)
         free(handle);
+    free_srv_names(kadmin_srv_names);
+    free(tmp_srv_names[0]);
 
     return code;
 }
@@ -665,46 +802,46 @@ get_init_creds(kadm5_server_handle_t handle, krb5_principal client,
 {
     kadm5_ret_t code;
     krb5_ccache ccache = NULL;
-    krb5_principal cprinc;
     char svcbuf[BUFSIZ], *service, *host, *svcname, *save;
+    char strtok_buf[BUFSIZ];
 
     *server_out = NULL;
 
-    /*
-     * Convert the RPCSEC_GSS version to the host based version as this
-     * is what gic expects.
-     */
-    if ((svcname = strdup(svcname_in)) == NULL) {
-	code = ENOMEM;
-	goto error;
-    }
-    if ((service = strtok_r(svcname, "@", &save)) != NULL) {
-	if ((host = strtok_r(NULL, "@", &save)) != NULL) {
-	    char *str = NULL;
-	    /*
-	     * We want the canonical name here, via sname_to_principal.
-	     */
-	    code = krb5_sname_to_principal(handle->context, host, service,
-		KRB5_NT_SRV_HST, &cprinc);
-	    if (code) {
-		free(svcname);
-		goto error;
-	    }
-	    code = krb5_unparse_name_flags(handle->context, cprinc,
-		KRB5_PRINCIPAL_UNPARSE_NO_REALM, &str);
-	    krb5_free_principal(handle->context, cprinc);
-	    if (code) {
-		free(svcname);
-		goto error;
-	    }
-	    (void) strncpy(svcbuf, str, sizeof(svcbuf));
-	    krb5_free_unparsed_name(handle->context, str);
-	}
+    if (strpbrk(svcname_in, "@") == NULL) {
+        svcname = svcname_in;
     } else {
-	strncpy(svcbuf, svcname, sizeof(svcbuf));
-	svcbuf[sizeof(svcname)-1] = '\0';
+        /*
+         * Convert the RPCSEC_GSS version to the host based version as this
+         * is what gic expects.
+         */
+        (void) strlcpy(strtok_buf, svcname_in, sizeof(strtok_buf));
+        service = strtok_r(strtok_buf, "@", &save);
+        if ((host = strtok_r(NULL, "@", &save)) != NULL) {
+            char *str = NULL;
+            krb5_principal cprinc;
+            /*
+             * We want the canonical name here, via sname_to_principal.
+             */
+            code = krb5_sname_to_principal(handle->context, host, service,
+                                           KRB5_NT_SRV_HST, &cprinc);
+            if (code)
+                goto error;
+
+            code = krb5_unparse_name_flags(handle->context, cprinc,
+                                           KRB5_PRINCIPAL_UNPARSE_NO_REALM,
+                                           &str);
+            krb5_free_principal(handle->context, cprinc);
+            if (code)
+                goto error;
+
+            (void) strlcpy(svcbuf, str, sizeof(svcbuf));
+            krb5_free_unparsed_name(handle->context, str);
+            svcname = svcbuf;
+        } else {
+            code = KADM5_BAD_SERVER_NAME;
+            goto error;
+        }
     }
-    free(svcname);
 
     /*
      * Acquire a service ticket for svcname@realm for client, using password
@@ -741,7 +878,7 @@ get_init_creds(kadm5_server_handle_t handle, krb5_principal client,
     }
     handle->lhandle->cache_name = handle->cache_name;
 
-    code = gic_iter(handle, init_type, ccache, client, pass, svcbuf, realm,
+    code = gic_iter(handle, init_type, ccache, client, pass, svcname, realm,
                     server_out);
     /* Improved error messages */
     if (code == KRB5KRB_AP_ERR_BAD_INTEGRITY) code = KADM5_BAD_PASSWORD;
