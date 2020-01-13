@@ -29,6 +29,10 @@
  * SUCH DAMAGES.
  */
 
+/*
+ * Copyright (c) 2008, 2015, Oracle and/or its affiliates. All rights reserved.
+ */
+
 #include "k5-int.h"
 #include "pkinit.h"
 #include "k5-json.h"
@@ -1580,6 +1584,10 @@ handle_gic_opt(krb5_context context,
             pkiDebug("Setting flag to use RSA_PROTOCOL\n");
             plgctx->opts->dh_or_rsa = RSA_PROTOCOL;
         }
+    } else if (strcmp(attr, "PIN") == 0) {
+	plgctx->idopts->PIN = strdup(value);
+	if (plgctx->idopts->PIN == NULL)
+	    return ENOMEM;
     }
     return 0;
 }
