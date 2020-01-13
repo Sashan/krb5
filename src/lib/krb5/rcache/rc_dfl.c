@@ -248,6 +248,9 @@ krb5_rc_dfl_close_no_free(krb5_context context, krb5_rcache id)
     struct dfl_data *t = (struct dfl_data *)id->data;
     struct authlist *q;
 
+    if (id->data == NULL)
+	return 0;
+
     free(t->h);
     if (t->name)
         free(t->name);
@@ -264,6 +267,7 @@ krb5_rc_dfl_close_no_free(krb5_context context, krb5_rcache id)
     (void) krb5_rc_io_close(context, &t->d);
 #endif
     free(t);
+    id->data = NULL;
     return 0;
 }
 
@@ -328,6 +332,7 @@ cleanup:
         if (t->h)
             free(t->h);
         free(t);
+	id->data = NULL;
     }
     return retval;
 }
