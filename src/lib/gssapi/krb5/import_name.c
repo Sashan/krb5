@@ -288,7 +288,6 @@ krb5_gss_import_name(minor_status, input_name_buffer,
                     goto fail_name;
                 cp += length;
             }
-            assert(cp == end);
         } else {
             status = GSS_S_BAD_NAMETYPE;
             goto cleanup;
