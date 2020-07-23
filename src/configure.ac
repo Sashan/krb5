@@ -280,6 +280,9 @@ builtin)
 openssl)
   AC_CHECK_LIB(crypto, PKCS7_get_signer_info)
   ;;
+ucrypto)
+  CRYPTO_IMPL_LIBS="-lucrypto"
+  ;;
 *)
   AC_MSG_ERROR([Unknown crypto implementation $withval])
   ;;
