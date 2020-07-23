@@ -9,6 +9,39 @@ load_lib lib.t
 
 api_exit
 api_start
+
+if ![info exists RESOLVE] {
+    set RESOLVE [findfile $objdir/../../../tests/resolve/resolve]
+}
+proc get_hostname { } {
+    global RESOLVE
+    global hostname
+
+    if {[info exists hostname]} {
+	return 1
+    }
+
+    catch "exec $RESOLVE -d >myname" exec_output
+    if ![string match "" $exec_output] {
+	send_log "$exec_output\n"
+	verbose $exec_output
+	send_error "ERROR: can't get hostname\n"
+	return 0
+    }
+    set file [open myname r]
+    if { [ gets $file hostname ] == -1 } {
+	send_error "ERROR: no output from hostname\n"
+	return 0
+    }
+    close $file
+    catch "exec rm -f myname" exec_output
+
+    set hostname [string tolower $hostname]
+    verbose "hostname: $hostname"
+
+    return 1
+}
+
 test "init 1"
 
 one_line_fail_test_nochk \
@@ -686,6 +719,10 @@ proc test45_46 {service} {
 }
 
 if {$RPC} {
+    global hostname
+
+    get_hostname
+
     test "init 45"
 
     test45_46 kadmin/changepw
