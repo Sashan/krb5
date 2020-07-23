@@ -435,6 +435,12 @@ loop_add_tcp_address(int default_port, const char *addresses)
     return loop_add_addresses(addresses, default_port, TCP, NULL);
 }
 
+void
+setup_kdc_options(krb5_int32 max_tcp)
+{
+    max_tcp_or_rpc_data_connections = max_tcp;
+}
+
 krb5_error_code
 loop_add_rpc_service(int default_port, const char *addresses, u_long prognum,
                      u_long versnum, void (*dispatchfn)())

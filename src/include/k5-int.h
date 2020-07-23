@@ -275,6 +275,7 @@ typedef unsigned char   u_char;
 #define KRB5_CONF_MAX_LIFE                     "max_life"
 #define KRB5_CONF_MAX_READERS                  "max_readers"
 #define KRB5_CONF_MAX_RENEWABLE_LIFE           "max_renewable_life"
+#define KRB5_CONF_MAX_TCP_CONNECTIONS          "kdc_max_tcp_connections"
 #define KRB5_CONF_MODULE                       "module"
 #define KRB5_CONF_NOADDRESSES                  "noaddresses"
 #define KRB5_CONF_NOSYNC                       "nosync"

@@ -72,6 +72,7 @@ krb5_error_code loop_setup_network(verto_ctx *ctx, void *handle,
 krb5_error_code loop_setup_signals(verto_ctx *ctx, void *handle,
                                    void (*reset)());
 void loop_free(verto_ctx *ctx);
+void setup_kdc_options(krb5_int32);
 
 /* to be supplied by the server application */
 
