@@ -383,6 +383,7 @@ import string
 import subprocess
 import sys
 import imp
+import re
 
 # Used when most things go wrong (other than programming errors) so
 # that the user sees an error message rather than a Python traceback,
@@ -530,7 +531,20 @@ def _find_srctop():
 # because it explicitly prefers results containing periods and
 # krb5_sname_to_principal doesn't care.
 def _get_hostname():
+    # in Solaris, we always canonicalize using FQDN by forcing DNS lookup
     hostname = socket.gethostname()
+    # dig for fqdn, only output answer section
+    answer = subprocess.check_output(['/usr/sbin/dig', '+search', '+noall', '+answer', hostname]);
+    answer = str(answer, 'utf-8')
+    for line in answer.split("\n"):
+        # find A record
+        if re.search(r"\bA\b", line):
+            # only cut out the NAME part
+            return re.sub(r'\.?[ \t].*','',line)
+
+    fail('Local hostname "%s" does not resolve.' % (hostname))
+
+    # unreachable:
     try:
         ai = socket.getaddrinfo(hostname, None, 0, 0, 0, socket.AI_CANONNAME)
     except socket.gaierror as e:

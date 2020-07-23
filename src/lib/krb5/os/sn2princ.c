@@ -39,6 +39,14 @@
 #define DEFAULT_RDNS_LOOKUP 1
 #endif
 
+/*
+ * The following prototypes are needed because these are
+ * private interfaces that do not have prototypes in any .h
+ */
+extern struct hostent   *res_getipnodebyname(const char *, int, int, int *);
+extern struct hostent   *res_getipnodebyaddr(const void *, size_t, int, int *);
+extern void             res_freehostent(struct hostent *);
+
 static krb5_boolean
 use_reverse_dns(krb5_context context)
 {
@@ -52,6 +60,26 @@ use_reverse_dns(krb5_context context)
         return DEFAULT_RDNS_LOOKUP;
 
     return value;
+}
+
+/*
+ * Translate getipnodeby* error codes to strings for coherent error messaging.
+ */
+static const char *
+get_host_error(int err)
+{
+    switch(err) {
+    case HOST_NOT_FOUND:
+        return "host not found";
+    case NO_DATA:
+        return "no data record of requested type";
+    case NO_RECOVERY:
+        return "non-recoverable error";
+    case TRY_AGAIN:
+        return "host name lookup failure";
+    default:
+        return "error unknown";
+    }
 }
 
 /* Append a domain suffix to host and return the result in allocated memory.
@@ -94,6 +122,9 @@ k5_expand_hostname(krb5_context context, const char *host,
     int err;
     const char *canonhost;
     krb5_boolean use_dns;
+    struct hostent *hp = NULL;
+    struct hostent *hp2 = NULL;
+    int addr_family;
 
     *canonhost_out = NULL;
 
@@ -121,7 +152,31 @@ k5_expand_hostname(krb5_context context, const char *host,
             if (!err)
                 canonhost = namebuf;
         }
-#endif 0
+#endif
+        /* using res_getipnodebyname to force dns name resolution*/
+        addr_family = AF_INET;
+try_getipnodebyname_again:
+        hp = res_getipnodebyname(host, addr_family, 0, &err);
+        if (hp == NULL) {
+            if (addr_family == AF_INET) {
+                /* Just in case it's an IPv6-only name.  */
+                addr_family = AF_INET6;
+                goto try_getipnodebyname_again;
+            }
+            k5_setmsg(context, KRB5_ERR_BAD_HOSTNAME,
+                      _("Hostname cannot be canonicalized for '%s': %s"),
+                      host, get_host_error(err));
+            return KRB5_ERR_BAD_HOSTNAME;
+        }
+        canonhost = hp->h_name;
+
+        if (use_reverse_dns(context)) {
+            /* Try a reverse lookup of the address. */
+            hp2 = res_getipnodebyaddr(hp->h_addr, hp->h_length,
+                                      hp->h_addrtype, &err);
+            if (hp2 != NULL)
+                canonhost = hp2->h_name;
+        }
     }
 
     /* If we didn't use DNS and the name is just one component, try to add a
@@ -152,10 +207,13 @@ k5_expand_hostname(krb5_context context, const char *host,
     *canonhost_out = copy;
 
 cleanup:
-    /* We only return success or ENOMEM. */
     if (ai != NULL)
         freeaddrinfo(ai);
     free(qualified);
+    if (hp != NULL)
+        res_freehostent(hp);
+    if (hp2 != NULL)
+        res_freehostent(hp2);
     return (*canonhost_out == NULL) ? ENOMEM : 0;
 }
 
