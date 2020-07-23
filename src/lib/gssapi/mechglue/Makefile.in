@@ -74,7 +74,8 @@ SRCS = \
 	$(srcdir)/g_verify.c \
 	$(srcdir)/g_wrap_aead.c \
 	$(srcdir)/g_wrap_iov.c \
-	$(srcdir)/gssd_pname_to_uid.c
+	$(srcdir)/gssd_pname_to_uid.c \
+	$(srcdir)/libgss_stubs.c
 
 OBJS = \
 	$(OUTPRE)g_accept_sec_context.$(OBJEXT) \
@@ -140,7 +141,8 @@ OBJS = \
 	$(OUTPRE)g_verify.$(OBJEXT) \
 	$(OUTPRE)g_wrap_aead.$(OBJEXT) \
 	$(OUTPRE)g_wrap_iov.$(OBJEXT) \
-	$(OUTPRE)gssd_pname_to_uid.$(OBJEXT)
+	$(OUTPRE)gssd_pname_to_uid.$(OBJEXT) \
+	$(OUTPRE)libgss_stubs.$(OBJEXT)
 
 STLIBOBJS = \
 	g_accept_sec_context.o \
@@ -213,7 +215,7 @@ EXPORTED_HEADERS = mechglue.h
 
 $(OBJS): $(EXPORTED_HEADERS)
 
-all-unix: all-libobjs
+all-unix: all-libobjs libgss_stubs.o
 
 ##DOS##LIBOBJS = $(OBJS)
 
