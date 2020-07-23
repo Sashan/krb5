@@ -143,6 +143,16 @@ copy_initiator_creds(OM_uint32 *minor_status,
     }
 
     code = krb5_cc_copy_creds(context, kcred->ccache, ccache);
+    if (code == KRB5_FCC_NOFILE) {
+        /* default ccache file does not exists => initialize ccache */
+        code = krb5_cc_initialize(context, ccache, kcred->name->princ);
+        if (code != 0) {
+            *minor_status = code;
+            major_status = GSS_S_CRED_UNAVAIL;
+            goto cleanup;
+        }
+        code = krb5_cc_copy_creds(context, kcred->ccache, ccache);
+    }
     if (code != 0) {
         *minor_status = code;
         major_status = GSS_S_FAILURE;
