@@ -49,10 +49,11 @@
 #include "k5-buf.h"
 
 /** helper macros **/
-
+#ifndef g_OID_equal
 #define g_OID_equal(o1, o2)                                             \
         (((o1)->length == (o2)->length) &&                              \
         (memcmp((o1)->elements, (o2)->elements, (o1)->length) == 0))
+#endif
 
 /* this code knows that an int on the wire is 32 bits.  The type of
    num should be at least this big, or the extra shifts may do weird
