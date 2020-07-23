@@ -236,7 +236,7 @@ if test "$withval" = yes; then
 fi
 
 # Check which (if any) audit plugin to build
-audit_plugin=""
+audit_plugin="solaris"
 AC_ARG_ENABLE([audit-plugin],
 AC_HELP_STRING([--enable-audit-plugin=IMPL],
                [use audit plugin @<:@ do not use audit @:>@]), , enableval=no)
@@ -251,6 +251,13 @@ if test "$enableval" != no; then
                      audit_plugin=plugins/audit/simple ],
                      AC_MSG_ERROR([libaudit not found or undefined symbol audit_log_user_message]))
         ;;
+    solaris)
+        AC_CHECK_LIB(bsm, adt_start_session,
+                     [AUDIT_IMPL_LIBS=-lbsm
+                     K5_GEN_MAKEFILE(plugins/audit/solaris)
+                     audit_plugin=plugins/audit/solaris ],
+                     AC_MSG_ERROR([bsm not found or undefined symbol adt_start_session]))
+	;;
     *)
         AC_MSG_ERROR([Unknown audit plugin implementation $enableval.])
         ;;

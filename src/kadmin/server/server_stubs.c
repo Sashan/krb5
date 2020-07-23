@@ -477,6 +477,29 @@ log_unauth(
     slen = server->length;
     trunc_name(&slen, &sdots);
 
+    {
+	char *client_str = NULL, *server_str = NULL;
+	int len;
+
+	len = asprintf(&client_str, "%.*s%s", (int)clen, (char *)client->value,
+	    cdots);
+	if (len == -1)
+	    return ENOMEM;
+
+	len = asprintf(&server_str, "%.*s%s", (int)slen, (char *)server->value,
+	    sdots);
+	if (len == -1) {
+	    free(client_str);
+	    return ENOMEM;
+	}
+
+	audit_kadmind(op, target, client_str, server_str,
+	    _("Unauthorized request"), rqstp->rq_xprt, 1);
+
+	free(client_str);
+	free(server_str);
+    }
+
     /* okay to cast lengths to int because trunc_name limits max value */
     return krb5_klog_syslog(LOG_NOTICE,
                             _("Unauthorized request: %s, %.*s%s, "
@@ -507,6 +530,29 @@ log_done(
     trunc_name(&clen, &cdots);
     slen = server->length;
     trunc_name(&slen, &sdots);
+
+    {
+	char *client_str = NULL, *server_str = NULL;
+	int len;
+
+	len = asprintf(&client_str, "%.*s%s", (int)clen, (char *)client->value,
+	    cdots);
+	if (len == -1)
+	    return ENOMEM;
+
+	len = asprintf(&server_str, "%.*s%s", (int)slen, (char *)server->value,
+	    sdots);
+	if (len == -1) {
+	    free(client_str);
+	    return ENOMEM;
+	}
+
+	audit_kadmind(op, target, client_str, server_str, (char *)errmsg,
+	    rqstp->rq_xprt, strcmp("success", errmsg) ? 1 : 0);
+
+	free(client_str);
+	free(server_str);
+    }
 
     /* okay to cast lengths to int because trunc_name limits max value */
     return krb5_klog_syslog(LOG_NOTICE,
