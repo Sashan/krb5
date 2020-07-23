@@ -98,6 +98,12 @@ static int save_error_string_nocopy(OM_uint32 minor_code, char *msg)
         }
     }
     ret = gsserrmap_replace_or_insert(p, minor_code, msg);
+    if (ret) {
+	gsserrmap_destroy(p);
+	free(p);
+	p = NULL;
+	(void) k5_setspecific(K5_KEY_GSS_KRB5_ERROR_MESSAGE, NULL);
+    }
 fail:
 #ifdef DEBUG
     fprintf(stderr, " p=%p %s\n", (void *)p, ret ? "FAIL" : "SUCCESS");
