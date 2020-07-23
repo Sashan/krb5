@@ -5,6 +5,17 @@
 #include "int-proto.h"
 #include "os-proto.h"
 
+/*
+ * See the function's definition for the description of this interface.
+ */
+krb5_error_code
+k5_get_init_creds_password(krb5_context, krb5_creds *,
+                               krb5_principal, const char *,
+                               krb5_prompter_fct, void *,
+                               krb5_deltat, const char *,
+                               krb5_get_init_creds_opt *,
+                               krb5_kdc_rep **);
+
 krb5_error_code
 krb5_get_as_key_password(krb5_context context,
                          krb5_principal client,
@@ -135,7 +146,7 @@ krb5_init_creds_set_password(krb5_context context,
 
 /* Return the password expiry time indicated by enc_part2.  Set *is_last_req
  * if the information came from a last_req value. */
-static void
+void
 get_expiry_times(krb5_enc_kdc_rep_part *enc_part2, krb5_timestamp *pw_exp,
                  krb5_timestamp *acct_exp, krb5_boolean *is_last_req)
 {
@@ -287,6 +298,35 @@ krb5_get_init_creds_password(krb5_context context,
                              krb5_deltat start_time,
                              const char *in_tkt_service,
                              krb5_get_init_creds_opt *options)
+{
+    /*
+     * We call our own private function that returns the as_reply back to
+     * the caller.  This structure contains information, such as
+     * key-expiration and last-req fields.  Entities such as pam_krb5 can
+     * use this information to provide account/password expiration warnings.
+     * The original "prompter" interface is not granular enough for PAM,
+     * as it will perform all passes w/o coordination with other modules.
+     */
+    return (k5_get_init_creds_password(context, creds, client, password,
+                                           prompter, data, start_time,
+                                           in_tkt_service, options, NULL));
+}
+
+/*
+ * See krb5_get_init_creds_password()'s comments for the justification of this
+ * private function.  Caller must free ptr_as_reply if non-NULL.
+ */
+krb5_error_code KRB5_CALLCONV
+k5_get_init_creds_password(krb5_context context,
+                             krb5_creds *creds,
+                             krb5_principal client,
+                             const char *password,
+                             krb5_prompter_fct prompter,
+                             void *data,
+                             krb5_deltat start_time,
+                             const char *in_tkt_service,
+                             krb5_get_init_creds_opt *options,
+			     krb5_kdc_rep **ptr_as_reply)
 {
     krb5_error_code ret;
     int use_master;
@@ -504,8 +544,12 @@ cleanup:
     memset(pw0array, 0, sizeof(pw0array));
     memset(pw1array, 0, sizeof(pw1array));
     krb5_free_cred_contents(context, &chpw_creds);
-    if (as_reply)
-        krb5_free_kdc_rep(context, as_reply);
+    if (as_reply != NULL) {
+	if (ptr_as_reply == NULL)
+	    krb5_free_kdc_rep(context, as_reply);
+	else
+	    *ptr_as_reply = as_reply;
+    }
     k5_clear_error(&errsave);
 
     return(ret);

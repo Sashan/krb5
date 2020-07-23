@@ -645,6 +645,7 @@ do_iprop()
     kdb_last_t mylast;
     kdb_fullresync_result_t *full_ret;
     kadm5_iprop_handle_t handle;
+   char **kiprop_srv_names;
 
     if (debug)
         fprintf(stderr, _("Incremental propagation enabled\n"));
@@ -654,8 +655,8 @@ do_iprop()
         pollin = 10;
 
     if (master_svc_princstr == NULL) {
-        retval = kadm5_get_kiprop_host_srv_name(kpropd_context, realm,
-                                                &master_svc_princstr);
+        retval = kadm5_get_kiprop_host_srv_names(kpropd_context, realm,
+						 &kiprop_srv_names);
         if (retval) {
             com_err(progname, retval,
                     _("%s: unable to get kiprop host based "
@@ -663,6 +664,15 @@ do_iprop()
                     progname, realm);
             return retval;
         }
+        master_svc_princstr = strdup(kiprop_srv_names[0]);
+	free_srv_names(kiprop_srv_names);
+	if (master_svc_princstr == NULL) {
+            com_err(progname, retval,
+                    _("%s: unable to allocate memory for kiprop host based "
+                      "service name for realm %s\n"),
+                    progname, def_realm);
+            return ENOMEM;
+	}
     }
 
     retval = sn2princ_realm(kpropd_context, NULL, KIPROP_SVC_NAME, realm,
