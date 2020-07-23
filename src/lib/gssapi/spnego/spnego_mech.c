@@ -174,6 +174,13 @@ get_negTokenResp(OM_uint32 *, unsigned char *, unsigned int,
 static int
 is_kerb_mech(gss_OID oid);
 
+/* encoded OID octet string for NTLMSSP security mechanism */
+#define GSS_MECH_NTLMSSP_OID_LENGTH 10
+#define GSS_MECH_NTLMSSP_OID "\053\006\001\004\001\202\067\002\002\012"
+static gss_OID_desc ntlmssp_oid = {
+	GSS_MECH_NTLMSSP_OID_LENGTH, GSS_MECH_NTLMSSP_OID
+};
+
 /* SPNEGO oid structure */
 static const gss_OID_desc spnego_oids[] = {
 	{SPNEGO_OID_LENGTH, SPNEGO_OID},
@@ -1355,6 +1362,7 @@ acc_ctx_new(OM_uint32 *minor_status,
 	gss_buffer_desc der_mechTypes;
 	gss_OID mech_wanted;
 	spnego_gss_ctx_id_t sc = NULL;
+        unsigned int i;
 
 	ret = GSS_S_DEFECTIVE_TOKEN;
 	der_mechTypes.length = 0;
@@ -3151,6 +3159,7 @@ get_available_mechs(OM_uint32 *minor_status,
 	gss_OID_set mechs, goodmechs;
 	gss_OID_set_desc except_attrs;
 	gss_OID_desc attr_oids[3];
+        char *msinterop = getenv("MS_INTEROP");
 
 	*rmechs = GSS_C_NO_OID_SET;
 
@@ -3187,7 +3196,51 @@ get_available_mechs(OM_uint32 *minor_status,
 		}
 	}
 
+	/*
+	 * If the required keytab entries for Kerberized SMB service are
+	 * missing due to an SMB authentication upgrade failure, SMB daemon
+	 * will set MS_INTEROP environmment variable to 1 to ensure only
+	 * NTLMSSP security mech is used for negotiation.
+	 *
+	 * note: since 1.18 we are modifying result of gss_acquire_cred_from().
+	 * this is a consequence of upstream changes related to introducation
+	 * of NegoEx. Earlier versions of MIT kerberos used pass creds == NULL,
+	 * when cred usage was GSS_C_ACCEPT.
+	 */
+	if ((msinterop != NULL) && (!strcmp(msinterop, "1"))) {
+		(void) gss_release_oid_set(&tmpmin, &mechs);
+		major_status = gss_add_oid_set_member(minor_status,
+		    &ntlmssp_oid, &mechs);
+	} else {
+		if ((major_status == GSS_S_COMPLETE) &&
+		    (msinterop != NULL) && (!strcmp(msinterop, "2")))
+			major_status = gss_add_oid_set_member(minor_status,
+			    &ntlmssp_oid, &mechs);
+	}
+
 	if (mechs->count > 0 && major_status == GSS_S_COMPLETE) {
+		*rmechs = mechs;
+	} else if (msinterop != NULL) {
+		/*
+		 * unlike krb5-1.16, krb5-1.18 always passes non-MULL creds.
+		 * this makes gss_acquire_cred_from() to fail, when there is
+		 * NTLM mech available only in request (context to accept).
+		 * The failure is expected, because there is no GSSAPI
+		 * plugin to handle NTLM.
+		 *
+		 * in krb5-1.16 we could do the right thing (add NTLM mech),
+		 * because the available mechs were not trimmed w.r.t. to
+		 * creds.
+		 *
+		 * It's still not clear to me how things work. I suspect we are
+		 * just convincing GSSAPI to continue with negotiation by
+		 * forcibly adding NTLM regardless creds we have. The code
+		 * then must proceed to smbd, which uses creeds and does
+		 * NTLM auth on its own.
+		 *
+		 * Overall verdict: looks like ugly hack.
+		 */
+		major_status = GSS_S_COMPLETE;
 		*rmechs = mechs;
 	} else {
 		(void) gss_release_oid_set(&tmpmin, &mechs);
