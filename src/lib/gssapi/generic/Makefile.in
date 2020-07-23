@@ -66,6 +66,7 @@ SRCS = \
 	$(srcdir)/util_buffer.c \
 	$(srcdir)/util_buffer_set.c \
 	$(srcdir)/util_errmap.c \
+	$(srcdir)/util_ordering.c \
 	$(srcdir)/util_set.c \
 	$(srcdir)/util_seqstate.c \
 	$(srcdir)/util_token.c \
@@ -83,6 +84,7 @@ OBJS = \
 	$(OUTPRE)util_buffer.$(OBJEXT) \
 	$(OUTPRE)util_buffer_set.$(OBJEXT) \
 	$(OUTPRE)util_errmap.$(OBJEXT) \
+	$(OUTPRE)util_ordering.$(OBJEXT) \
 	$(OUTPRE)util_set.$(OBJEXT) \
 	$(OUTPRE)util_seqstate.$(OBJEXT) \
 	$(OUTPRE)util_token.$(OBJEXT) \
@@ -98,6 +100,7 @@ STLIBOBJS = \
 	util_buffer.o \
 	util_buffer_set.o \
 	util_errmap.o \
+	util_ordering.o \
 	util_set.o \
 	util_seqstate.o \
 	util_token.o \

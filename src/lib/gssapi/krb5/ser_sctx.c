@@ -137,6 +137,21 @@ kg_oid_size(gss_OID oid, size_t *sizep)
 }
 
 static krb5_error_code
+kg_queue_externalize(arg, buffer, lenremain)
+    krb5_pointer        arg;
+    krb5_octet          **buffer;
+    size_t              *lenremain;
+{
+    krb5_error_code err;
+    err = krb5_ser_pack_int32(KV5M_GSS_QUEUE, buffer, lenremain);
+    if (err == 0)
+        err = g_queue_externalize(arg, buffer, lenremain);
+    if (err == 0)
+        err = krb5_ser_pack_int32(KV5M_GSS_QUEUE, buffer, lenremain);
+    return err;
+}
+
+static krb5_error_code
 kg_seqstate_externalize(arg, buffer, lenremain)
     g_seqnum_state      arg;
     krb5_octet          **buffer;
@@ -149,6 +164,47 @@ kg_seqstate_externalize(arg, buffer, lenremain)
     if (err == 0)
         err = krb5_ser_pack_int32(KV5M_GSS_QUEUE, buffer, lenremain);
     return err;
+}
+
+static krb5_error_code
+kg_queue_internalize(argp, buffer, lenremain)
+    krb5_pointer        *argp;
+    krb5_octet          **buffer;
+    size_t              *lenremain;
+{
+    krb5_int32 ibuf;
+    krb5_octet         *bp;
+    size_t             remain;
+    krb5_error_code    err;
+
+    bp = *buffer;
+    remain = *lenremain;
+
+    /* Read in and check our magic number */
+    if (krb5_ser_unpack_int32(&ibuf, &bp, &remain))
+        return (EINVAL);
+
+    if (ibuf != KV5M_GSS_QUEUE)
+        return (EINVAL);
+
+    err = g_queue_internalize(argp, &bp, &remain);
+    if (err)
+        return err;
+
+    /* Read in and check our trailing magic number */
+    if (krb5_ser_unpack_int32(&ibuf, &bp, &remain)) {
+        g_order_free(argp);
+        return (EINVAL);
+    }
+
+    if (ibuf != KV5M_GSS_QUEUE) {
+        g_order_free(argp);
+        return (EINVAL);
+    }
+
+    *buffer = bp;
+    *lenremain = remain;
+    return 0;
 }
 
 static krb5_error_code
@@ -190,6 +246,25 @@ kg_seqstate_internalize(argp, buffer, lenremain)
     *buffer = bp;
     *lenremain = remain;
     return 0;
+}
+
+static krb5_error_code
+kg_queue_size(arg, sizep)
+    krb5_pointer        arg;
+    size_t              *sizep;
+{
+    krb5_error_code kret;
+    size_t required;
+
+    kret = EINVAL;
+    if (arg) {
+        required = 2*sizeof(krb5_int32); /* For the header and trailer */
+        (void) g_queue_size(arg, &required);
+
+        kret = 0;
+        *sizep += required;
+    }
+    return(kret);
 }
 
 static krb5_error_code
@@ -282,7 +357,7 @@ kg_ctx_size(krb5_context kcontext, krb5_gss_ctx_id_t ctx, size_t *sizep)
             kret = kg_oid_size(ctx->mech_used, &required);
 
         if (!kret && ctx->seqstate)
-            kret = kg_seqstate_size(ctx->seqstate, &required);
+            kret = kg_queue_size(ctx->seqstate, &required);
 
         if (!kret)
             kret = k5_size_context(ctx->k5_context, &required);
@@ -346,6 +421,8 @@ kg_ctx_externalize(krb5_context kcontext, krb5_gss_ctx_id_t ctx,
                                        &bp, &remain);
             (void) krb5_ser_pack_int32((krb5_int32) ctx->established,
                                        &bp, &remain);
+	    (void) krb5_ser_pack_int32((krb5_int32) ctx->big_endian,
+				       &bp, &remain);
             (void) krb5_ser_pack_int32((krb5_int32) ctx->have_acceptor_subkey,
                                        &bp, &remain);
             (void) krb5_ser_pack_int32((krb5_int32) ctx->seed_init,
@@ -402,8 +479,25 @@ kg_ctx_externalize(krb5_context kcontext, krb5_gss_ctx_id_t ctx,
                 kret = k5_externalize_keyblock(&ctx->seq->keyblock,
                                                &bp, &remain);
 
-            if (!kret && ctx->seqstate)
-                kret = kg_seqstate_externalize(ctx->seqstate, &bp, &remain);
+            if (!kret && ctx->seqstate) {
+                void *q = NULL;
+
+                /*
+                 * we need to pass next (exepected) sequence number,
+                 * when exporting context, so context receiver can
+                 * continue with sequence number checks, when integrity
+                 * protection is enabled.
+                 */
+                kret = g_order_init(&q, g_seqstate_rebase(ctx->seqstate),
+                                    (ctx->gss_flags & GSS_C_REPLAY_FLAG) != 0,
+                                    (ctx->gss_flags & GSS_C_SEQUENCE_FLAG) != 0,
+                                    ctx->proto);
+
+                if (!kret) {
+                    kret = kg_queue_externalize(q, &bp, &remain);
+                    g_order_free(&q);
+                }
+            }
 
             if (!kret)
                 kret = k5_externalize_context(ctx->k5_context, &bp, &remain);
@@ -529,6 +623,8 @@ kg_ctx_internalize(krb5_context kcontext, krb5_gss_ctx_id_t *argp,
             (void) krb5_ser_unpack_int32(&ibuf, &bp, &remain);
             ctx->established = (int) ibuf;
             (void) krb5_ser_unpack_int32(&ibuf, &bp, &remain);
+            ctx->big_endian = (int) ibuf;
+            (void) krb5_ser_unpack_int32(&ibuf, &bp, &remain);
             ctx->have_acceptor_subkey = (int) ibuf;
             (void) krb5_ser_unpack_int32(&ibuf, &bp, &remain);
             ctx->seed_init = (int) ibuf;
@@ -606,7 +702,7 @@ kg_ctx_internalize(krb5_context kcontext, krb5_gss_ctx_id_t *argp,
             }
 
             if (!kret) {
-                kret = kg_seqstate_internalize(&ctx->seqstate, &bp, &remain);
+                kret = kg_queue_internalize(&ctx->seqstate, &bp, &remain);
                 if (kret == EINVAL)
                     kret = 0;
             }
@@ -621,6 +717,25 @@ kg_ctx_internalize(krb5_context kcontext, krb5_gss_ctx_id_t *argp,
             if (!kret)
                 kret = krb5_ser_unpack_int32(&ibuf, &bp, &remain);
             ctx->proto = ibuf;
+
+            if (!kret && (ctx->seqstate != NULL)) {
+		uint64_t base = g_queue_firstnum((void **)&(ctx->seqstate));
+
+                g_order_free((void **)&(ctx->seqstate));
+                /*
+		 * The seqstate number we've imported becomes our first
+		 * sequence number received (base number for us), so we can
+		 * continue with integrity protection in imported context.
+                 */
+                kret = g_seqstate_init(&(ctx->seqstate), base,
+                    (ctx->gss_flags & GSS_C_REPLAY_FLAG) != 0,
+                    (ctx->gss_flags & GSS_C_SEQUENCE_FLAG) != 0, ctx->proto);
+            } else if (ctx->gss_flags &
+                (GSS_C_REPLAY_FLAG|GSS_C_SEQUENCE_FLAG)) {
+                if (!kret)
+                    kret = EINVAL;
+            }
+
             if (!kret)
                 kret = krb5_ser_unpack_int32(&ibuf, &bp, &remain);
             ctx->cksumtype = ibuf;

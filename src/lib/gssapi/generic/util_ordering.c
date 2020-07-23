@@ -309,3 +309,13 @@ g_queue_internalize(void **vqueue, unsigned char **buf, size_t *lenremain)
     *vqueue = q;
     return 0;
 }
+
+uint64_t
+g_queue_firstnum(void **vqueue)
+{
+	queue	*q;
+
+	q = (queue *) (*vqueue);
+
+	return (q->firstnum);
+}

@@ -84,7 +84,6 @@ krb5_gss_import_sec_context(minor_status, interprocess_token, context_handle)
         krb5_free_context(context);
         return(GSS_S_FAILURE);
     }
-    krb5_free_context(context);
 
     ctx->mech_used = krb5_gss_convert_static_mech_oid(ctx->mech_used);
 
