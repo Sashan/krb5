@@ -18,13 +18,15 @@ realm.run(['./t_ccselect', phost], expected_msg=realm.user_princ)
 realm.run([kdestroy])
 
 # Test 2: no name/cache specified, pick principal from k5identity
-k5idname = os.path.join(realm.testdir, '.k5identity')
-k5id = open(k5idname, 'w')
-k5id.write('%s service=host host=%s\n' % (bob, hostname))
-k5id.close()
-realm.run(['./t_ccselect', gssserver], expected_msg=bob)
-os.remove(k5idname)
-realm.run([kdestroy])
+#k5idname = os.path.join(realm.testdir, '.k5identity')
+#k5id = open(k5idname, 'w')
+#k5id.write('%s service=host host=%s\n' % (bob, hostname))
+#k5id.close()
+#realm.run(['./t_ccselect', gssserver], expected_msg=bob)
+#os.remove(k5idname)
+#realm.run([kdestroy])
+sys.stderr.write("Support of k5identity ccselect plugin disabled, skipping "
+    "Test 2...\n");
 
 # Test 3: no name/cache specified, default ccache has name but no creds
 realm.run(['./ccinit', realm.ccache, bob])
