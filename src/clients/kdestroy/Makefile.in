@@ -19,7 +19,7 @@ all-unix: kdestroy
 ##WIN32##all-windows: $(KDESTROY)
 
 kdestroy: kdestroy.o $(KRB5_BASE_DEPLIBS)
-	$(CC_LINK) -o $@ kdestroy.o $(KRB5_BASE_LIBS)
+	$(CC_LINK) -o $@ kdestroy.o $(KRB5_BASE_LIBS) -lkwarn
 
 ##WIN32##$(KDESTROY): $(OUTPRE)kdestroy.obj $(SLIB) $(KLIB) $(CLIB) $(EXERES)
 ##WIN32##	link $(EXE_LINKOPTS) -out:$@ $**
