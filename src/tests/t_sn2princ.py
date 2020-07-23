@@ -5,6 +5,7 @@ offline = (len(args) > 0 and args[0] != "no")
 conf = {'domain_realm': {'kerberos.org': 'R1',
                          'example.com': 'R2',
                          'mit.edu': 'R3'}}
+rdns_conf = {'libdefaults': {'rdns': 'true'}}
 no_rdns_conf = {'libdefaults': {'rdns': 'false'}}
 no_canon_conf = {'libdefaults': {'dns_canonicalize_hostname': 'false',
                                  'qualify_shortname': 'example.com'}}
@@ -13,6 +14,7 @@ fallback_canon_conf = {'libdefaults':
                         'dns_canonicalize_hostname': 'fallback'}}
 
 realm = K5Realm(realm='R1', create_host=False, krb5_conf=conf)
+rdns = realm.special_env('rdns', False, krb5_conf=rdns_conf)
 no_rdns = realm.special_env('no_rdns', False, krb5_conf=no_rdns_conf)
 no_canon = realm.special_env('no_canon', False, krb5_conf=no_canon_conf)
 fallback_canon = realm.special_env('fallback_canon', False,
@@ -34,6 +36,10 @@ def test(host, princhost, princrealm):
 def testnc(host, princhost, princrealm):
     # Test with the host-based name type with canonicalization disabled.
     testbase(host, 'srv-hst', princhost, princrealm, env=no_canon)
+
+def testr(host, princhost, princrealm):
+    # Test with the host-based name type with reverse lookup enabled.
+    testbase(host, 'srv-hst', princhost, princrealm, env=rdns)
 
 def testnr(host, princhost, princrealm):
     # Test with the host-based name type with reverse lookup disabled.
@@ -134,10 +140,14 @@ if rname == fname:
               '%s reverse resolves to %s '
               'which should be different from %s' % (oname, rname, fname))
 
-# Test default canonicalization (forward and reverse lookup).
-mark('default')
-test(oname, rname, 'R3')
-test(oname + ':123', rname + ':123', 'R3')
-test(oname + ':xyZ', rname + ':xyZ', 'R3')
+# Test forward+reverse lookup canonicalization (rdns=true).
+testr(oname, rname, 'R3')
+testr(oname + ':123', rname + ':123', 'R3')
+testr(oname + ':xyZ', rname + ':xyZ', 'R3')
+
+# Test default canonicalization (forward lookup).
+test(oname, fname, 'R1')
+test(oname + ':123', fname + ':123', 'R1')
+test(oname + ':xyZ', fname + ':xyZ', 'R1')
 
 success('krb5_sname_to_principal tests')

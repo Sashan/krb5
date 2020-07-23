@@ -36,7 +36,7 @@
 #endif
 
 #if !defined(DEFAULT_RDNS_LOOKUP)
-#define DEFAULT_RDNS_LOOKUP 1
+#define DEFAULT_RDNS_LOOKUP 0
 #endif
 
 /*
