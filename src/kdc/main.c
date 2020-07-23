@@ -684,6 +684,9 @@ initialize_realms(krb5_context kcontext, int argc, char **argv,
         hierarchy[1] = KRB5_CONF_HOST_BASED_SERVICES;
         if (krb5_aprof_get_string_all(aprof, hierarchy, &hostbased))
             hostbased = 0;
+    } else {
+        fprintf(stderr, _("KDC cannot initialize. Cannot get profile.\n"));
+        exit(1);
     }
 
     if (def_udp_listen == NULL) {
