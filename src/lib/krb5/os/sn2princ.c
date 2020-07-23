@@ -102,6 +102,7 @@ k5_expand_hostname(krb5_context context, const char *host,
                (is_fallback &&
                 context->dns_canonicalize_hostname == CANONHOST_FALLBACK));
     if (use_dns) {
+#if 0 /* force DNS lookup */
         /* Try a forward lookup of the hostname. */
         memset(&hint, 0, sizeof(hint));
         hint.ai_flags = AI_CANONNAME;
@@ -120,6 +121,7 @@ k5_expand_hostname(krb5_context context, const char *host,
             if (!err)
                 canonhost = namebuf;
         }
+#endif 0
     }
 
     /* If we didn't use DNS and the name is just one component, try to add a

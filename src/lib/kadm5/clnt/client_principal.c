@@ -5,7 +5,7 @@
  * $Header$
  */
 
-#include    <gssrpc/rpc.h>
+#include    <rpc/rpc.h>
 #include    <kadm5/admin.h>
 #include    <kadm5/kadm_rpc.h>
 #ifdef HAVE_MEMORY_H

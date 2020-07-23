@@ -1142,7 +1142,7 @@ class K5Realm(object):
             princname = self.admin_princ
             pw = password('admin')
         return self.kinit(princname, pw,
-                          flags=['-S', 'kadmin/admin',
+                          flags=['-S', 'kadmin/' + hostname,
                                  '-c', self.kadmin_ccache] + flags)
 
     def run_kadmin(self, args, **keywords):

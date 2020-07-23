@@ -2,7 +2,7 @@
 #ifndef __KADM_RPC_H__
 #define __KADM_RPC_H__
 
-#include <gssrpc/types.h>
+#include <rpc/types.h>
 
 #include	<krb5.h>
 #include	<kadm5/admin.h>
@@ -404,5 +404,9 @@ extern bool_t xdr_krb5_string_attr ();
 extern bool_t xdr_kadm5_key_data ();
 extern bool_t xdr_getpkeys_arg ();
 extern bool_t xdr_getpkeys_ret ();
+
+/* Solaris libc doesn't define 32 bit version of xdr_int and xdr_u_int */
+#define	xdr_int32 xdr_int
+#define	xdr_u_int32 xdr_u_int
 
 #endif /* __KADM_RPC_H__ */

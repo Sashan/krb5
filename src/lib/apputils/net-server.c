@@ -33,7 +33,7 @@
 #include "port-sockets.h"
 #include "socket-utils.h"
 
-#include <gssrpc/rpc.h>
+#include <rpc/rpc.h>
 
 #ifdef HAVE_NETINET_IN_H
 #include <sys/types.h>
@@ -194,6 +194,9 @@ struct connection {
 
 #define FREE_SET_DATA(set)                                      \
     (free(set.data), set.data = 0, set.max = 0, set.n = 0)
+
+#define EMPTY(set)                                              \
+    (set.n == 0)
 
 /*
  * N.B.: The Emacs cc-mode indentation code seems to get confused if
@@ -582,6 +585,113 @@ static void process_tcp_connection_write(verto_ctx *ctx, verto_ev *ev);
 static void accept_rpc_connection(verto_ctx *ctx, verto_ev *ev);
 static void process_rpc_connection(verto_ctx *ctx, verto_ev *ev);
 
+static int
+set_tli_opt(int fd, int level, int name, const void *val, unsigned int val_len)
+{
+    struct t_optmgmt req, rep;
+    struct opthdr *opt;
+    char reqbuf[256];
+
+    if (val_len + sizeof (struct opthdr) > sizeof (reqbuf))
+        return -1;
+
+    opt = (struct opthdr *) reqbuf;
+    opt->level = level;
+    opt->name = name;
+    opt->len = val_len;
+
+    memcpy(reqbuf + sizeof (struct opthdr), val, val_len);
+
+    req.flags = T_NEGOTIATE;
+    req.opt.len = sizeof (struct opthdr) + opt->len;
+    req.opt.buf = (char *) opt;
+
+    rep.flags = 0;
+    rep.opt.buf = reqbuf;
+    rep.opt.maxlen = sizeof (reqbuf);
+
+    if (t_optmgmt(fd, &req, &rep) < 0 || rep.flags != T_SUCCESS) {
+        t_error("t_optmgmt");
+        return -1;
+    }
+
+    return 0;
+}
+
+/*
+ * Create a tli/xti endpoint and bind it to addr. Ensure the file descriptor
+ * will work with select. Set cloexec, reuseaddr, and if applicable v6-only.
+ * Does not call listen().  Returns -1 on failure after logging an error.
+ */
+static int
+create_server_endpoint(struct netconfig *nconf, struct sockaddr *sock_address,
+		       const char *prog, int *err)
+{
+    int fd, on;
+    struct t_info tinfo;
+    struct t_bind *tbind;
+
+    /* open transport endpoint */
+    fd = t_open(nconf->nc_device, O_RDWR, &tinfo);
+    if (fd == -1) {
+        *err = errno;
+        com_err(prog, errno, _("unable to open connection for ADMIN server"));
+        return -1;
+    }
+    set_cloexec_fd(fd);
+
+    /* ensure fd works with select */
+    if (fd >= FD_SETSIZE) {
+	*err = errno;
+        t_close(fd);
+        com_err(prog, 0, _("endpoint fd number %d too high"), fd);
+        return -1;
+    }
+
+    /* set SO_REUSEADDR */
+    on = 1;
+    if (set_tli_opt(fd, SOL_SOCKET, SO_REUSEADDR , &on, sizeof (on)) < 0)
+        com_err(prog, errno,
+                _("cannot enable SO_REUSEADDR on fd %d"), fd);
+
+    /* set IPv6-only as appropriate */
+    if (sock_address->sa_family == AF_INET6) {
+#ifdef IPV6_V6ONLY
+        if (set_tli_opt(fd, IPPROTO_IPV6, IPV6_V6ONLY , &on, sizeof (on)) < 0)
+            com_err(prog, errno, _("cannot set IPV6_V6ONLY on fd %d"), fd);
+#else
+        krb5_klog_syslog(LOG_INFO, _("no IPV6_V6ONLY socket option support"));
+#endif /* IPV6_V6ONLY */
+    }
+
+    /* bind fd to specified address */
+    tbind = (struct t_bind *)t_alloc(fd, T_BIND, T_ADDR);
+    if (tbind == NULL) {
+	*err = ENOMEM;
+	com_err(prog, errno, _("Cannot allocate t_bind structure."));
+        t_close(fd);
+        return -1;
+    }
+
+    tbind->qlen = 64;    /* Chosen Arbitrarily, from svc_generic.c */
+    tbind->addr.len = (sock_address->sa_family == AF_INET6) ?
+                      sizeof (struct sockaddr_in6) :
+                      sizeof (struct sockaddr_in);
+    memcpy(tbind->addr.buf, sock_address, tbind->addr.len);
+
+    if (t_bind(fd, tbind, NULL) < 0) {
+	*err = errno;
+        com_err(prog, errno, _("Cannot bind transport endpoint to %s"),
+                paddr(sock_address));
+        t_free(tbind, T_BIND);
+        t_close(fd);
+        return -1;
+    }
+    t_free(tbind, T_BIND);
+
+    return fd;
+}
+
 /*
  * Create a socket and bind it to addr.  Ensure the socket will work with
  * select().  Set the socket cloexec, reuseaddr, and if applicable v6-only.
@@ -695,18 +805,37 @@ setup_socket(struct bind_address *ba, struct sockaddr *sock_address,
              void *handle, const char *prog, verto_ctx *ctx,
              int tcp_listen_backlog, verto_callback vcb, enum conn_type ctype)
 {
-    krb5_error_code ret;
+    krb5_error_code ret = 0;
     struct connection *conn;
     verto_ev_flag flags;
     verto_ev *ev = NULL;
     int sock = -1;
+    struct netconfig *nconf = NULL;
+    int err;
 
     krb5_klog_syslog(LOG_DEBUG, _("Setting up %s socket for address %s"),
                      bind_type_names[ba->type], paddr(sock_address));
 
     /* Create the socket. */
-    ret = create_server_socket(sock_address, bind_socktypes[ba->type], prog,
-                               &sock);
+    if (ba->type == RPC) {
+        switch (sock_address->sa_family) {
+        case AF_INET:
+            nconf = getnetconfigent("tcp");
+            break;
+        case AF_INET6:
+            nconf = getnetconfigent("tcp6");
+            break;
+        default:
+            ret = EAFNOSUPPORT;
+            goto cleanup;
+        }
+        sock = create_server_endpoint(nconf, sock_address, prog, &err);
+	if (sock == -1)
+	    ret = err;
+    } else {
+	ret = create_server_socket(sock_address, bind_socktypes[ba->type], prog,
+				   &sock);
+    }
     if (ret)
         goto cleanup;
 
@@ -763,23 +892,33 @@ setup_socket(struct bind_address *ba, struct sockaddr *sock_address,
 
     if (ba->type == RPC) {
         conn = verto_get_private(ev);
-        conn->transp = svctcp_create(sock, 0, 0);
+        errno = 0;
+        conn->transp = svc_tli_create(sock, nconf, NULL, 0, 0);
         if (conn->transp == NULL) {
-            ret = errno;
-            krb5_klog_syslog(LOG_ERR, _("Cannot create RPC service: %s"),
-                             strerror(ret));
+            ret = (errno != 0) ? errno : EINVAL;
+            krb5_klog_syslog(LOG_ERR,
+                             _("Cannot create RPC service; continuing"));
             goto cleanup;
         }
 
-        ret = svc_register(conn->transp, ba->rpc_svc_data.prognum,
-                           ba->rpc_svc_data.versnum, ba->rpc_svc_data.dispatch,
-                           0);
-        if (!ret) {
-            ret = errno;
-            krb5_klog_syslog(LOG_ERR, _("Cannot register RPC service: %s"),
-                             strerror(ret));
+        if (!svc_reg(conn->transp, ba->rpc_svc_data.prognum,
+                     ba->rpc_svc_data.versnum, ba->rpc_svc_data.dispatch,
+                     nconf)) {
+            ret = (errno != 0) ? errno : EINVAL;
+            krb5_klog_syslog(LOG_ERR,
+                             _("Cannot register RPC prog %d vers %d on %s; "
+                               "continuing"),
+                             (int) ba->rpc_svc_data.prognum,
+                             (int) ba->rpc_svc_data.versnum,
+                             nconf->nc_netid);
             goto cleanup;
         }
+        krb5_klog_syslog(LOG_INFO,
+                         _("listening on fd %d: %s address %s:%hd "
+                           "(RPC prog %d vers %d)"),
+                         sock, nconf->nc_netid, ba->address, ba->port,
+                         (int) ba->rpc_svc_data.prognum,
+                         (int) ba->rpc_svc_data.versnum);
     }
 
     ev = NULL;
@@ -791,6 +930,8 @@ cleanup:
         close(sock);
     if (ev != NULL)
         verto_del(ev);
+    if (nconf != NULL)
+	freenetconfigent(nconf);
     return ret;
 }
 

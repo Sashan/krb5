@@ -42,7 +42,7 @@
 #define __KADM5_ADMIN_H__
 
 #include        <sys/types.h>
-#include        <gssrpc/rpc.h>
+#include        <rpc/rpc.h>
 #include        <krb5.h>
 #include        <kdb.h>
 #include        <com_err.h>
@@ -64,7 +64,9 @@ KADM5INT_BEGIN_DECLS
 #define KADM5_ADMIN_SERVICE     "kadmin/admin"
 #define KADM5_CHANGEPW_SERVICE  "kadmin/changepw"
 #define KADM5_HIST_PRINCIPAL    "kadmin/history"
-#define KADM5_KIPROP_HOST_SERVICE "kiprop"
+
+#define KADM5_KIPROP_HOST_SERVICE	"kiprop"
+#define	KADM5_ADMIN_HOST_SERVICE	"kadmin"
 
 typedef krb5_principal  kadm5_princ_t;
 typedef char            *kadm5_policy_t;
@@ -461,6 +463,21 @@ kadm5_ret_t    kadm5_free_key_data(void *server_handle,
 
 kadm5_ret_t    kadm5_free_name_list(void *server_handle, char **names,
                                     int count);
+
+kadm5_ret_t
+kadm5_get_adm_host_srv_names(krb5_context context,
+		             const char *realm, char ***host_service_names);
+
+kadm5_ret_t
+kadm5_get_cpw_host_srv_names(krb5_context context,
+		             const char *realm, char ***host_service_names);
+
+kadm5_ret_t
+kadm5_get_kiprop_host_srv_names(krb5_context context,
+		             const char *realm, char ***host_service_names);
+
+void
+free_srv_names(char **srv_names);
 
 krb5_error_code kadm5_init_krb5_context (krb5_context *);
 

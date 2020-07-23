@@ -45,16 +45,17 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <netdb.h>
-#include <gssrpc/rpc.h>
+#include <rpc/rpc.h>
 #include <gssapi/gssapi.h>
 #include "gssapiP_krb5.h" /* for kg_get_context */
-#include <gssrpc/auth_gssapi.h>
 #include <kadm5/admin.h>
 #include <kadm5/kadm_rpc.h>
 #include <adm_proto.h>
 #include "kdb_kt.h"  /* for krb5_ktkdb_set_context */
 #include <string.h>
 #include <kdb_log.h>
+#include <rpc/rpcsec_gss.h>
+#include <kadm5/kadm_rpc.h>
 
 #include "misc.h"
 #include "auth.h"
@@ -347,20 +348,21 @@ main(int argc, char *argv[])
     OM_uint32 minor_status;
     gss_buffer_desc in_buf;
     gss_OID nt_krb5_name_oid = (gss_OID)GSS_KRB5_NT_PRINCIPAL_NAME;
-    auth_gssapi_name names[4];
+    char *names[4];
     kadm5_config_params params;
     verto_ctx *vctx;
     const char *pid_file = NULL;
     char **db_args = NULL, **tmpargs;
     const char *acl_file;
     int ret, i, db_args_size = 0, strong_random = 1, proponly = 0;
+    char **tmp_srv_names;
+    krb5_principal princ;
+    char *pos;
 
     setlocale(LC_ALL, "");
     setvbuf(stderr, NULL, _IONBF, 0);
 
-    names[0].name = names[1].name = names[2].name = names[3].name = NULL;
-    names[0].type = names[1].type = names[2].type = names[3].type =
-        nt_krb5_name_oid;
+    names[0] = names[1] = names[2] = names[3] = NULL;
 
     progname = (strrchr(argv[0], '/') != NULL) ? strrchr(argv[0], '/') + 1 :
         argv[0];
@@ -473,28 +475,88 @@ main(int argc, char *argv[])
                            "iprop_enable is true"));
     }
 
-    ret = setup_loop(&params, proponly, &vctx);
+    ret = kadm5_get_adm_host_srv_names(context, params.realm, &tmp_srv_names);
     if (ret)
-        fail_to_start(ret, _("initializing network"));
+        fail_to_start(ret, _("building GSSAPI auth names"));
+    names[0] = strdup(tmp_srv_names[0]);
+    if (names[0] == NULL)
+        fail_to_start(ENOMEM, _("copying GSSAPI auth names"));
+    free_srv_names(tmp_srv_names);
+    tmp_srv_names = NULL;
 
-    names[0].name = build_princ_name(KADM5_ADMIN_SERVICE, params.realm);
-    names[1].name = build_princ_name(KADM5_CHANGEPW_SERVICE, params.realm);
-    if (names[0].name == NULL || names[1].name == NULL)
-        fail_to_start(0, _("Cannot build GSSAPI auth names"));
+    ret = kadm5_get_cpw_host_srv_names(context, params.realm, &tmp_srv_names);
+    if (ret)
+        fail_to_start(ret, _("building GSSAPI auth names"));
+    names[1] = strdup(tmp_srv_names[0]);
+    if (names[1] == NULL)
+        fail_to_start(ENOMEM, _("copying GSSAPI auth names"));
+    free_srv_names(tmp_srv_names);
+    tmp_srv_names = NULL;
+
+    if (params.iprop_enabled == TRUE) {
+        ret = kadm5_get_kiprop_host_srv_names(context, params.realm,
+                                              &tmp_srv_names);
+        if (ret)
+            fail_to_start(ret, _("building GSSAPI auth names"));
+        names[2] = strdup(tmp_srv_names[0]);
+        if (names[2] == NULL)
+            fail_to_start(ENOMEM, _("copying GSSAPI auth names"));
+        free_srv_names(tmp_srv_names);
+        tmp_srv_names = NULL;
+
+        /*
+         * For hierarchical incremental propagation we need kadmind
+         * on slave KDCs to register local hostbased kiprop service principal,
+         * not the one for admin server. For least surprise on upgrade we
+         * register both.
+         */
+        ret = krb5_sname_to_principal(context, NULL, KADM5_KIPROP_HOST_SERVICE,
+                                      KRB5_NT_SRV_HST, &princ);
+        if (ret)
+            fail_to_start(ret, _("building GSSAPI auth names"));
+        ret = krb5_unparse_name(context, princ, &names[3]);
+        if (ret)
+            fail_to_start(ret, _("building GSSAPI auth names"));
+        if ((pos = strchr(names[3], '@')) != NULL)
+            *pos = '\0';
+        if ((pos = strchr(names[3], '/')) != NULL)
+            *pos = '@';
+    }
 
     ret = setup_kdb_keytab();
     if (ret)
         fail_to_start(0, _("Cannot set up KDB keytab"));
-
+#if 0
     if (svcauth_gssapi_set_names(names, 2) == FALSE)
         fail_to_start(0, _("Cannot set GSSAPI authentication names"));
+#endif
+    if (!rpc_gss_set_svc_name(names[0], "kerberos_v5", 0, KADM, KADMVERS))
+        fail_to_start(0, _("Cannot set GSSAPI authentication names"));
+    if (!rpc_gss_set_svc_name(names[1], "kerberos_v5", 0, KADM, KADMVERS))
+        fail_to_start(0, _("Cannot set GSSAPI authentication names"));
+    if (params.iprop_enabled == TRUE) {
+        if (!rpc_gss_set_svc_name(names[2], "kerberos_v5", 0,
+                                  KRB5_IPROP_PROG, KRB5_IPROP_VERS))
+            fail_to_start(0, _("Cannot set GSSAPI authentication names"));
+        if (strcmp(names[2], names[3])){
+            if (!rpc_gss_set_svc_name(names[3], "kerberos_v5", 0,
+                                      KRB5_IPROP_PROG, KRB5_IPROP_VERS))
+                fail_to_start(0, _("Cannot set GSSAPI authentication names"));
+
+        }
+    }
 
     /* if set_names succeeded, this will too */
-    in_buf.value = names[1].name;
-    in_buf.length = strlen(names[1].name) + 1;
+    in_buf.value = names[1];
+    in_buf.length = strlen(names[1]);
     (void)gss_import_name(&minor_status, &in_buf, nt_krb5_name_oid,
                           &gss_changepw_name);
 
+    ret = setup_loop(&params, proponly, &vctx);
+    if (ret)
+        fail_to_start(ret, _("initializing network"));
+
+#if 0
     svcauth_gssapi_set_log_badauth2_func(log_badauth, NULL);
     svcauth_gssapi_set_log_badverf_func(log_badverf, NULL);
     svcauth_gssapi_set_log_miscerr_func(log_miscerr, NULL);
@@ -505,6 +567,7 @@ main(int argc, char *argv[])
 
     if (svcauth_gss_set_svc_name(GSS_C_NO_NAME) != TRUE)
         fail_to_start(0, _("Cannot initialize GSSAPI service name"));
+#endif
 
     acl_file = (*params.acl_file != '\0') ? params.acl_file : NULL;
     ret = auth_init(context, acl_file);
@@ -549,14 +612,16 @@ main(int argc, char *argv[])
     krb5_klog_syslog(LOG_INFO, _("finished, exiting"));
 
     /* Clean up memory, etc */
+#if 0
     svcauth_gssapi_unset_names();
+#endif
     kadm5_destroy(global_server_handle);
     loop_free(vctx);
     auth_fini(context);
     (void)gss_release_name(&minor_status, &gss_changepw_name);
     (void)gss_release_name(&minor_status, &gss_oldchangepw_name);
     for (i = 0; i < 4; i++)
-        free(names[i].name);
+        free(names[i]);
 
     krb5_klog_close(context);
     krb5_free_context(context);

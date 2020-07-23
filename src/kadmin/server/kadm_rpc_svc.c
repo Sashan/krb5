@@ -5,7 +5,7 @@
  */
 
 #include <k5-int.h>
-#include <gssrpc/rpc.h>
+#include <rpc/rpc.h>
 #include <gssapi/gssapi_krb5.h> /* for gss_nt_krb5_name */
 #include <syslog.h>
 #include <kadm5/kadm_rpc.h>
@@ -76,8 +76,7 @@ void kadm_1(rqstp, transp)
      bool_t (*xdr_argument)(), (*xdr_result)();
      bool_t (*local)();
 
-     if (rqstp->rq_cred.oa_flavor != AUTH_GSSAPI &&
-	 !check_rpcsec_auth(rqstp)) {
+     if (rqstp->rq_cred.oa_flavor != RPCSEC_GSS) {
 	  krb5_klog_syslog(LOG_ERR, "Authentication attempt failed: %s, "
 			   "RPC authentication flavor %d",
 			   client_addr(rqstp->rq_xprt),
@@ -248,7 +247,7 @@ void kadm_1(rqstp, transp)
 	  return;
      }
      memset(&argument, 0, sizeof(argument));
-     if (!svc_getargs(transp, xdr_argument, &argument)) {
+     if (!svc_getargs(transp, xdr_argument, (char *)&argument)) {
 	  svcerr_decode(transp);
 	  return;
      }
@@ -259,16 +258,18 @@ void kadm_1(rqstp, transp)
 		 "continuing.");
 	  svcerr_systemerr(transp);
      }
-     if (!svc_freeargs(transp, xdr_argument, &argument)) {
+     if (!svc_freeargs(transp, xdr_argument, (char *)&argument)) {
 	  krb5_klog_syslog(LOG_ERR, "WARNING! Unable to free arguments, "
 		 "continuing.");
      }
-     if (!svc_freeargs(transp, xdr_result, &result)) {
+     if (!svc_freeargs(transp, xdr_result, (char *)&result)) {
 	  krb5_klog_syslog(LOG_ERR, "WARNING! Unable to free results, "
 		 "continuing.");
      }
      return;
 }
+
+#if 0
 
 static int
 check_rpcsec_auth(struct svc_req *rqstp)
@@ -361,3 +362,4 @@ gss_to_krb5_name_1(struct svc_req *rqstp, krb5_context ctx, gss_name_t gss_name,
      free(str);
      return success;
 }
+#endif

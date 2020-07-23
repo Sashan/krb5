@@ -7,7 +7,7 @@
 
 #include <sys/types.h>
 #include <krb5.h>
-#include <gssrpc/rpc.h>
+#include <rpc/rpc.h>
 #include	"server_internal.h"
 #include "admin_xdr.h"
 #ifdef HAVE_MEMORY_H

@@ -28,6 +28,9 @@
             return cl_ret;                                              \
     }
 
+/* Solaris Kerberos: symbols available from libkadm5srv_mit */
+extern void	xdralloc_create(XDR *, enum xdr_op);
+extern caddr_t	xdralloc_getdata(XDR *);
 
 /*
  * Function: osa_adb_create_policy

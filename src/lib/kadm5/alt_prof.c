@@ -517,6 +517,7 @@ krb5_error_code kadm5_get_config_params(krb5_context context,
     kadm5_config_params params, empty_params;
     krb5_boolean bvalue;
     krb5_error_code ret = 0;
+    krb5_deltat sunw_iprop;
 
     memset(&params, 0, sizeof(params));
     memset(&empty_params, 0, sizeof(empty_params));
@@ -761,10 +762,17 @@ krb5_error_code kadm5_get_config_params(krb5_context context,
         params.mask |= KADM5_CONFIG_IPROP_ENABLED;
         params.iprop_enabled = params_in->iprop_enabled;
     } else {
-        if (aprofile &&
-            !krb5_aprof_get_boolean(aprofile, hierarchy, TRUE, &bvalue)) {
-            params.iprop_enabled = bvalue;
-            params.mask |= KADM5_CONFIG_IPROP_ENABLED;
+        if (aprofile) {
+            if(!krb5_aprof_get_boolean(aprofile, hierarchy, TRUE, &bvalue)) {
+                params.iprop_enabled = bvalue;
+                params.mask |= KADM5_CONFIG_IPROP_ENABLED;
+            } else {
+                hierarchy[2] = KRB5_CONF_SUNW_DBPROP_ENABLE;
+                if(!krb5_aprof_get_boolean(aprofile, hierarchy, TRUE, &bvalue)){
+                    params.iprop_enabled = bvalue;
+                    params.mask |= KADM5_CONFIG_IPROP_ENABLED;
+                }
+            }
         }
     }
 
@@ -793,21 +801,35 @@ krb5_error_code kadm5_get_config_params(krb5_context context,
         params.mask |= KADM5_CONFIG_ULOG_SIZE;
         params.iprop_ulogsize = params_in->iprop_ulogsize;
     } else {
-        if (aprofile != NULL &&
-            !krb5_aprof_get_int32(aprofile, hierarchy, TRUE, &ivalue)) {
-            if (ivalue <= 0)
-                params.iprop_ulogsize = DEF_ULOGENTRIES;
-            else
-                params.iprop_ulogsize = ivalue;
-            params.mask |= KADM5_CONFIG_ULOG_SIZE;
+        if (aprofile != NULL) {
+            if (!krb5_aprof_get_int32(aprofile, hierarchy, TRUE, &ivalue)) {
+                if (ivalue <= 0)
+                    params.iprop_ulogsize = DEF_ULOGENTRIES;
+                else
+                    params.iprop_ulogsize = ivalue;
+                params.mask |= KADM5_CONFIG_ULOG_SIZE;
+            } else {
+                hierarchy[2] = KRB5_CONF_SUNW_DBPROP_MASTER_ULOGSIZE;
+                if (!krb5_aprof_get_int32(aprofile, hierarchy, TRUE, &ivalue)) {
+                    if (ivalue <= 0)
+                        params.iprop_ulogsize = DEF_ULOGENTRIES;
+                    else
+                        params.iprop_ulogsize = ivalue;
+                    params.mask |= KADM5_CONFIG_ULOG_SIZE;
+                }
+            }
         }
     }
+
+    GET_DELTAT_PARAM(iprop_poll_time, KADM5_CONFIG_POLL_TIME,
+                     KRB5_CONF_SUNW_DBPROP_SLAVE_POLL, 2 * 60); /* 2m */
+    sunw_iprop = params.iprop_poll_time;
 
     GET_DELTAT_PARAM(iprop_poll_time, KADM5_CONFIG_POLL_TIME,
                      KRB5_CONF_IPROP_REPLICA_POLL, -1);
     if (params.iprop_poll_time == -1) {
         GET_DELTAT_PARAM(iprop_poll_time, KADM5_CONFIG_POLL_TIME,
-                         KRB5_CONF_IPROP_SLAVE_POLL, 2 * 60);
+                         KRB5_CONF_IPROP_SLAVE_POLL, sunw_iprop);
     }
 
     *params_out = params;

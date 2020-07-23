@@ -152,6 +152,8 @@ iprop_get_updates_1_svc(kdb_last_t *arg, struct svc_req *rqstp)
     kadm5_server_handle_t handle = global_server_handle;
     char *client_name = 0, *service_name = 0;
     char obuf[256] = {0};
+    gss_name_t name = NULL;
+    OM_uint32 min_stat;
 
     /* default return code */
     ret.ret = UPDATE_ERROR;
@@ -187,6 +189,13 @@ iprop_get_updates_1_svc(kdb_last_t *arg, struct svc_req *rqstp)
 
     DPRINT("%s: clprinc=`%s'\n\tsvcprinc=`%s'\n", whoami, client_name,
 	   service_name);
+
+    if (!(name = rqst2name(rqstp))) {
+        krb5_klog_syslog(LOG_ERR,
+                         _("%s: Couldn't obtain client's name"),
+                         whoami);
+        goto out;
+    }
 
     if (!iprop_acl_check(handle->context, client_name)) {
 	ret.ret = UPDATE_PERM_DENIED;
@@ -233,6 +242,8 @@ out:
 	debprret(whoami, ret.ret, ret.lastentry.last_sno);
     free(client_name);
     free(service_name);
+    if (name)
+        gss_release_name(&min_stat, &name);
     return (&ret);
 }
 
@@ -263,6 +274,20 @@ ipropx_resync(uint32_t vers, struct svc_req *rqstp)
     int pret, fret;
     FILE *p;
     kadm5_server_handle_t handle = global_server_handle;
+    /*
+     * The following two definitions are dead code in upstream krb5.
+     *
+     * OM_uint32 min_stat;
+     * gss_name_t name = NULL;
+     *
+     * They come from initial Sun donation of iprop.
+     * For Solaris specific RPC implementation we need them back.
+     * If upstream removes the dead code, hopefuly placing this comment
+     * in this place will result in an easy-to-debug patch error,
+     * rather then failure to compile.
+     */
+    OM_uint32 min_stat;
+    gss_name_t name = NULL;
     char *client_name = NULL, *service_name = NULL;
     char *whoami = "iprop_full_resync_1";
 
@@ -308,6 +333,13 @@ ipropx_resync(uint32_t vers, struct svc_req *rqstp)
 
     DPRINT("%s: clprinc=`%s'\n\tsvcprinc=`%s'\n",
 	    whoami, client_name, service_name);
+
+    if (!(name = rqst2name(rqstp))) {
+        krb5_klog_syslog(LOG_ERR,
+                         _("%s: Couldn't obtain client's name"),
+                         whoami);
+        goto out;
+    }
 
     if (!iprop_acl_check(handle->context, client_name)) {
 	ret.ret = UPDATE_PERM_DENIED;
@@ -438,6 +470,8 @@ out:
 	debprret(whoami, ret.ret, 0);
     free(client_name);
     free(service_name);
+    if (name)
+	gss_release_name(&min_stat, &name);
     free(ubuf);
     return (&ret);
 }
@@ -454,6 +488,7 @@ iprop_full_resync_ext_1_svc(uint32_t *argp, struct svc_req *rqstp)
     return ipropx_resync(*argp, rqstp);
 }
 
+#if 0
 static int
 check_iprop_rpcsec_auth(struct svc_req *rqstp)
 {
@@ -526,6 +561,7 @@ fail_name:
      gss_release_name(&min_stat, &name);
      return success;
 }
+#endif
 
 void
 krb5_iprop_prog_1(struct svc_req *rqstp,
@@ -539,6 +575,7 @@ krb5_iprop_prog_1(struct svc_req *rqstp,
     void *(*local)(/* union XXX *, struct svc_req * */);
     char *whoami = "krb5_iprop_prog_1";
 
+#if 0
     if (!check_iprop_rpcsec_auth(rqstp)) {
 	krb5_klog_syslog(LOG_ERR, _("authentication attempt failed: %s, RPC "
 				    "authentication flavor %d"),
@@ -547,6 +584,7 @@ krb5_iprop_prog_1(struct svc_req *rqstp,
 	svcerr_weakauth(transp);
 	return;
     }
+#endif
 
     switch (rqstp->rq_proc) {
     case NULLPROC:

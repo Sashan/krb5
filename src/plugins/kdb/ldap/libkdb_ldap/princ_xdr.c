@@ -6,6 +6,11 @@
 #include <kadm5/admin.h>
 #include <kadm5/server_internal.h>
 
+/* Solaris Kerberos: symbols available from libkadm5srv_mit*/
+extern void	xdralloc_create(XDR *, enum xdr_op);
+extern caddr_t	xdralloc_getdata(XDR *);
+
+
 void
 ldap_osa_free_princ_ent(osa_princ_ent_t val)
 {
