@@ -97,6 +97,29 @@ kadm5_ret_t kadm5_init_with_password(krb5_context context, char *client_name,
                       server_handle);
 }
 
+/*
+ * The following *_mm() functions are also defined here because kadmin.local
+ * shares the same source as kadmin.  One difference however is that
+ * kadmin.local links with libkadm5srv_mit.so instead of libkadm5clnt_mit.so so
+ * these functions must also be defined here.  Given kadmin.local can only
+ * operate on one server, the *_mm() functions just pass in the first server in
+ * the list of service_names.
+ */
+kadm5_ret_t kadm5_init_with_password_mm(krb5_context context,
+                                        char *client_name,
+                                        char *pass, char **service_names,
+                                        kadm5_config_params *params,
+                                        krb5_ui_4 struct_version,
+                                        krb5_ui_4 api_version,
+                                        char **db_args,
+                                        void **server_handle)
+{
+    return kadm5_init_with_password(context, client_name, pass,
+                                    service_names ? service_names[0] : NULL,
+                                    params, struct_version, api_version,
+                                    db_args, server_handle);
+}
+
 kadm5_ret_t kadm5_init_anonymous(krb5_context context, char *client_name,
                                  char *service_name,
                                  kadm5_config_params *params,
@@ -108,6 +131,20 @@ kadm5_ret_t kadm5_init_anonymous(krb5_context context, char *client_name,
     return kadm5_init(context, client_name, NULL, service_name, params,
                       struct_version, api_version, db_args,
                       server_handle);
+}
+
+kadm5_ret_t kadm5_init_anonymous_mm(krb5_context context, char *client_name,
+                                 char **service_names,
+                                 kadm5_config_params *params,
+                                 krb5_ui_4 struct_version,
+                                 krb5_ui_4 api_version,
+                                 char **db_args,
+                                 void **server_handle)
+{
+    return kadm5_init_anonymous(context, client_name,
+                                service_names ? service_names[0] : NULL,
+                                params, struct_version, api_version,
+                                db_args, server_handle);
 }
 
 kadm5_ret_t kadm5_init_with_creds(krb5_context context,
@@ -133,6 +170,22 @@ kadm5_ret_t kadm5_init_with_creds(krb5_context context,
                       server_handle);
 }
 
+kadm5_ret_t kadm5_init_with_creds_mm(krb5_context context,
+                                  char *client_name,
+                                  krb5_ccache ccache,
+                                  char **service_names,
+                                  kadm5_config_params *params,
+                                  krb5_ui_4 struct_version,
+                                  krb5_ui_4 api_version,
+                                  char **db_args,
+                                  void **server_handle)
+{
+    return kadm5_init_with_creds(context, client_name, ccache,
+                                 service_names ? service_names[0] : NULL,
+                                 params, struct_version, api_version,
+                                 db_args, server_handle);
+}
+
 
 kadm5_ret_t kadm5_init_with_skey(krb5_context context, char *client_name,
                                  char *keytab, char *service_name,
@@ -153,6 +206,20 @@ kadm5_ret_t kadm5_init_with_skey(krb5_context context, char *client_name,
     return kadm5_init(context, client_name, NULL, service_name, params,
                       struct_version, api_version, db_args,
                       server_handle);
+}
+
+kadm5_ret_t kadm5_init_with_skey_mm(krb5_context context, char *client_name,
+                                 char *keytab, char **service_names,
+                                 kadm5_config_params *params,
+                                 krb5_ui_4 struct_version,
+                                 krb5_ui_4 api_version,
+                                 char **db_args,
+                                 void **server_handle)
+{
+    return kadm5_init_with_skey(context, client_name, keytab,
+                                service_names ? service_names[0] : NULL,
+                                params, struct_version, api_version, db_args,
+                                server_handle);
 }
 
 kadm5_ret_t kadm5_init(krb5_context context, char *client_name, char *pass,
