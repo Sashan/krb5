@@ -29,6 +29,10 @@
  * SUCH DAMAGES.
  */
 
+/*
+ * Copyright (c) 2008, 2018, Oracle and/or its affiliates. All rights reserved.
+ */
+
 #include "k5-int.h"
 #include "pkinit_crypto_openssl.h"
 #include "k5-buf.h"
@@ -981,6 +985,7 @@ pkinit_init_pkcs11(pkinit_identity_crypto_context ctx)
     ctx->slotid = PK_NOSLOT;
     ctx->token_label = NULL;
     ctx->cert_label = NULL;
+    ctx->PIN = NULL;
     ctx->session = CK_INVALID_HANDLE;
     ctx->p11 = NULL;
 #endif
@@ -1013,6 +1018,7 @@ pkinit_fini_pkcs11(pkinit_identity_crypto_context ctx)
     free(ctx->token_label);
     free(ctx->cert_id);
     free(ctx->cert_label);
+    zapfreestr(ctx->PIN);
 #endif
 }
 
@@ -3576,7 +3582,36 @@ pkinit_C_UnloadModule(void *handle)
     dlclose(handle);
     return CKR_OK;
 }
+/*
+ * labelstr will be C string containing token label with trailing white space
+ * removed.
+ */
+static void
+trim_token_label(CK_TOKEN_INFO *tinfo, char *labelstr, unsigned int labelstr_len)
+{
+    int i;
 
+    assert(labelstr_len > sizeof (tinfo->label));
+    /*
+     * \0 terminate labelstr in case the last char in the token label is
+     * non-whitespace
+     */
+    labelstr[sizeof (tinfo->label)] = '\0';
+    (void) memcpy(labelstr, (char *) tinfo->label, sizeof (tinfo->label));
+
+    /* init i so terminating \0 is skipped */
+    for (i = sizeof (tinfo->label) - 1; i >= 0; i--) {
+       if (labelstr[i] == ' ')
+           labelstr[i] = '\0';
+       else
+           break;
+    }
+}
+
+/*
+ * This function was changed to support a PIN being passed in.  If that is the
+ * case the user will not be prompted for their PIN.
+ */
 static krb5_error_code
 pkinit_login(krb5_context context,
              pkinit_identity_crypto_context id_cryptoctx,
@@ -3592,6 +3627,15 @@ pkinit_login(krb5_context context,
     if (tip->flags & CKF_PROTECTED_AUTHENTICATION_PATH) {
         rdat.data = NULL;
         rdat.length = 0;
+    } else if (id_cryptoctx->PIN != NULL) {
+	if ((rdat.data = strdup(id_cryptoctx->PIN)) == NULL)
+	    return ENOMEM;
+	/*
+	 * Don't include NULL string terminator in length calculation as this
+	 * PIN is passed to the C_Login function and only the text chars should
+	 * be considered to be the PIN.
+	 */
+	rdat.length = strlen(id_cryptoctx->PIN);
     } else if (password != NULL) {
         rdat.data = strdup(password);
         rdat.length = strlen(password);
@@ -3599,6 +3643,13 @@ pkinit_login(krb5_context context,
         r = KRB5_LIBOS_CANTREADPWD;
         rdat.data = NULL;
     } else {
+        /* trim token label */
+        char tmplabel[sizeof (tip->label) + 1];
+	int prompt_len = sizeof (tip->label) + 256;
+
+        /* trim token label which can be padded with space */
+        trim_token_label(tip, tmplabel, sizeof (tmplabel));
+
         if (tip->flags & CKF_USER_PIN_LOCKED)
             warning = " (Warning: PIN locked)";
         else if (tip->flags & CKF_USER_PIN_FINAL_TRY)
@@ -3607,11 +3658,14 @@ pkinit_login(krb5_context context,
             warning = " (Warning: PIN count low)";
         else
             warning = "";
-        if (asprintf(&prompt, "%.*s PIN%s", (int) sizeof (tip->label),
-                     tip->label, warning) < 0)
+        if (asprintf(&prompt, "%.*s PIN%s", prompt_len, tmplabel, warning) < 0)
             return ENOMEM;
         rdat.data = malloc(tip->ulMaxPinLen + 2);
         rdat.length = tip->ulMaxPinLen + 1;
+	/*
+	 * Note that the prompter function will set rdat.length such that the
+	 * NULL terminator is not included.
+	 */
 
         kprompt.prompt = prompt;
         kprompt.hidden = 1;
@@ -3622,7 +3676,7 @@ pkinit_login(krb5_context context,
         k5int_set_prompt_types(context, &prompt_type);
         r = (*id_cryptoctx->prompter)(context, id_cryptoctx->prompter_data,
                                       NULL, NULL, 1, &kprompt);
-        k5int_set_prompt_types(context, 0);
+        k5int_set_prompt_types(context, NULL);
         free(prompt);
     }
 
@@ -3635,7 +3689,7 @@ pkinit_login(krb5_context context,
             r = KRB5KDC_ERR_PREAUTH_FAILED;
         }
     }
-    free(rdat.data);
+    zapfree(rdat.data, rdat.length);
 
     return r;
 }
@@ -3832,6 +3886,81 @@ pkinit_find_private_key(pkinit_identity_crypto_context id_cryptoctx,
     r = id_cryptoctx->p11->C_FindObjects(id_cryptoctx->session, objp, 1, &count);
     id_cryptoctx->p11->C_FindObjectsFinal(id_cryptoctx->session);
     pkiDebug("found %d private keys (%s)\n", (int) count, pkinit_pkcs11_code_to_text(r));
+
+    /*
+     * The CKA_ID may not be correctly set for the private key. For e.g. when
+     * storing a private key in softtoken pktool(1) doesn't generate or store
+     * a CKA_ID for the private key. Another way to identify the private key is
+     * to look for a private key with the same RSA modulus as the public key
+     * in the certificate.
+     */
+    if (r == CKR_OK && count != 1) {
+
+	EVP_PKEY *priv;
+	X509 *cert;
+	unsigned int n_len;
+	unsigned char *n_bytes;
+
+	cert = sk_X509_value(id_cryptoctx->my_certs, 0);
+	priv = X509_get_pubkey(cert);
+	if (priv == NULL) {
+    		pkiDebug("Failed to extract pub key from cert\n");
+		return KRB5KDC_ERR_PREAUTH_FAILED;
+	}
+
+	nattrs = 0;
+	cls = CKO_PRIVATE_KEY;
+	attrs[nattrs].type = CKA_CLASS;
+	attrs[nattrs].pValue = &cls;
+	attrs[nattrs].ulValueLen = sizeof cls;
+	nattrs++;
+
+#ifdef PKINIT_USE_KEY_USAGE
+	true_false = TRUE;
+	attrs[nattrs].type = usage;
+	attrs[nattrs].pValue = &true_false;
+	attrs[nattrs].ulValueLen = sizeof true_false;
+	nattrs++;
+#endif
+
+	keytype = CKK_RSA;
+	attrs[nattrs].type = CKA_KEY_TYPE;
+	attrs[nattrs].pValue = &keytype;
+	attrs[nattrs].ulValueLen = sizeof keytype;
+	nattrs++;
+
+	n_len = BN_num_bytes(priv->pkey.rsa->n);
+	n_bytes = (unsigned char *) malloc((size_t) n_len);
+	if (n_bytes == NULL) {
+		return (ENOMEM);
+	}
+
+	if (BN_bn2bin(priv->pkey.rsa->n, n_bytes) == 0) {
+		free (n_bytes);
+    		pkiDebug("zero-byte key modulus\n");
+		return KRB5KDC_ERR_PREAUTH_FAILED;
+	}
+
+	attrs[nattrs].type = CKA_MODULUS;
+	attrs[nattrs].ulValueLen = n_len;
+	attrs[nattrs].pValue = n_bytes;
+
+	nattrs++;
+
+	r = id_cryptoctx->p11->C_FindObjectsInit(id_cryptoctx->session, attrs, nattrs);
+	free (n_bytes);
+	if (r != CKR_OK) {
+		pkiDebug("krb5_pkinit_sign_data: C_FindObjectsInit: %s\n",
+			pkinit_pkcs11_code_to_text(r));
+		return KRB5KDC_ERR_PREAUTH_FAILED;
+	}
+
+	r = id_cryptoctx->p11->C_FindObjects(id_cryptoctx->session, objp, 1, &count);
+	id_cryptoctx->p11->C_FindObjectsFinal(id_cryptoctx->session);
+	pkiDebug("found %d private keys (%s)\n", (int) count, pkinit_pkcs11_code_to_text(r));
+
+    }
+
     if (r != CKR_OK || count < 1)
         return KRB5KDC_ERR_PREAUTH_FAILED;
     return 0;
@@ -4214,7 +4343,10 @@ pkinit_get_certs_pkcs12(krb5_context context,
         } else if (id_cryptoctx->prompter == NULL) {
             /* We can't use a prompter. */
             goto cleanup;
-        } else {
+        } else if (id_cryptoctx->PIN != NULL) {
+	    rdat.data = id_cryptoctx->PIN;
+	    /* note rdat.length isn't needed in this case */
+	} else {
             /* Ask using a prompter. */
             memset(prompt_reply, '\0', sizeof(prompt_reply));
             rdat.data = prompt_reply;
@@ -4233,7 +4365,7 @@ pkinit_get_certs_pkcs12(krb5_context context,
             k5int_set_prompt_types(context, &prompt_type);
             r = (*id_cryptoctx->prompter)(context, id_cryptoctx->prompter_data,
                                           NULL, NULL, 1, &kprompt);
-            k5int_set_prompt_types(context, 0);
+            k5int_set_prompt_types(context, NULL);
             if (r) {
                 TRACE_PKINIT_PKCS_PROMPT_FAIL(context);
                 goto cleanup;
@@ -4537,6 +4669,11 @@ pkinit_get_certs_pkcs11(krb5_context context,
         id_cryptoctx->cert_label = strdup(idopts->cert_label);
         if (id_cryptoctx->cert_label == NULL)
             return ENOMEM;
+    }
+    if (idopts->PIN != NULL) {
+	id_cryptoctx->PIN = strdup(idopts->PIN);
+	if (id_cryptoctx->PIN == NULL)
+	    return ENOMEM;
     }
     /* Convert the ascii cert_id string into a binary blob */
     if (idopts->cert_id_string != NULL) {

@@ -29,6 +29,10 @@
  * SUCH DAMAGES.
  */
 
+/*
+ * Copyright (c) 2008, 2015, Oracle and/or its affiliates. All rights reserved.
+ */
+
 #include "pkinit.h"
 #include <dlfcn.h>
 #include <dirent.h>
@@ -125,6 +129,7 @@ pkinit_init_identity_opts(pkinit_identity_opts **idopts)
     opts->token_label = NULL;
     opts->cert_id_string = NULL;
     opts->cert_label = NULL;
+    opts->PIN = NULL;
 #endif
 
     *idopts = opts;
@@ -202,8 +207,12 @@ pkinit_dup_identity_opts(pkinit_identity_opts *src_opts,
         if (newopts->cert_label == NULL)
             goto cleanup;
     }
+    if (src_opts->PIN != NULL) {
+	newopts->PIN = strdup(src_opts->PIN);
+	if (newopts->PIN == NULL)
+	    goto cleanup;
+    }
 #endif
-
 
     *dest_opts = newopts;
     return 0;
@@ -232,6 +241,7 @@ pkinit_fini_identity_opts(pkinit_identity_opts *idopts)
     free(idopts->token_label);
     free(idopts->cert_id_string);
     free(idopts->cert_label);
+    zapfreestr(idopts->PIN);
 #endif
     free(idopts);
 }

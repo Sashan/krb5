@@ -29,6 +29,10 @@
  * SUCH DAMAGES.
  */
 
+/*
+ * Copyright (c) 2008, 2015, Oracle and/or its affiliates. All rights reserved.
+ */
+
 #include "k5-int.h"
 #include "pkinit.h"
 #include "k5-json.h"
@@ -1475,6 +1479,10 @@ handle_gic_opt(krb5_context context,
     } else if (strcmp(attr, "disable_freshness") == 0) {
         if (strcmp(value, "yes") == 0)
             plgctx->opts->disable_freshness = 1;
+    } else if (strcmp(attr, "PIN") == 0) {
+	plgctx->idopts->PIN = strdup(value);
+	if (plgctx->idopts->PIN == NULL)
+	    return ENOMEM;
     }
     return 0;
 }
