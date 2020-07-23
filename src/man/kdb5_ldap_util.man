@@ -321,7 +321,7 @@ to the LDAP server.  Options:
 .TP
 \fB\-f\fP \fIfilename\fP
 Specifies the complete path of the service password file. By
-default, \fB/usr/local/var/service_passwd\fP is used.
+default, \fB@LOCALSTATEDIR@\fP\fB/krb5\fP\fB/service_passwd\fP is used.
 .TP
 .B \fIname\fP
 Specifies the name of the object whose password is to be stored.
