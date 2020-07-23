@@ -20,7 +20,8 @@ struct typelist {
     struct typelist *next;
 };
 static struct typelist none = { &k5_rc_none_ops, 0 };
-static struct typelist file2 = { &k5_rc_file2_ops, &none };
+static struct typelist mem = { &k5_rc_mem_ops, &none };
+static struct typelist file2 = { &k5_rc_file2_ops, &mem };
 static struct typelist dfl = { &k5_rc_dfl_ops, &file2 };
 static struct typelist *typehead = &dfl;
 
@@ -32,6 +33,14 @@ k5_rc_default(krb5_context context, krb5_rcache *rc_out)
     char *profstr, *rcname;
 
     *rc_out = NULL;
+
+    /*
+     * If KRB5RCNAME is Solars backward compatibility, value follows same
+     * format/grammar as upstream uses for KRB5RCACHENAME
+     */
+    val = secure_getenv("KRB5RCNAME");
+    if (val != NULL)
+        return k5_rc_resolve(context, val, rc_out);
 
     /* If KRB5RCACHENAME is set in the environment, resolve it. */
     val = secure_getenv("KRB5RCACHENAME");

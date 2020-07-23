@@ -48,10 +48,12 @@ struct krb5_rc_st {
 extern const krb5_rc_ops k5_rc_dfl_ops;
 extern const krb5_rc_ops k5_rc_file2_ops;
 extern const krb5_rc_ops k5_rc_none_ops;
+extern const krb5_rc_ops k5_rc_mem_ops;
 
 /* Check and store a replay record in an open (but not locked) file descriptor,
  * using the file2 format.  fd is assumed to be at offset 0. */
 krb5_error_code k5_rcfile2_store(krb5_context context, int fd,
                                  const krb5_data *tag_data);
+
 
 #endif /* RC_INT_H */
