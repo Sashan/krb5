@@ -55,11 +55,6 @@ extern "C" {
 #include <stdint.h>
 
 /*
- * First, include stddef.h to get size_t defined.
- */
-#include <stddef.h>
-
-/*
  * POSIX says that sys/types.h is where size_t is defined.
  */
 #include <sys/types.h>
