@@ -1098,13 +1098,16 @@ proc kadmin_test { } {
 	return
     }
 
+    # The fallback to kadmin/admin is an invalid test case for Solaris RPC.
+    # Ergo this test is now commented out.
+    #
     # test fallback to kadmin/admin
-    if {![kadmin_delete_locked_down kadmin/$hostname] \
-	    || ![kadmin_list] \
-	    || ![kadmin_add_rnd kadmin/$hostname -allow_tgs_req] \
-	    || ![kadmin_list]} {
-	return
-    }
+    #if {![kadmin_delete kadmin/$hostname] \
+    #	|| ![kadmin_list] \
+    #	|| ![kadmin_add_rnd kadmin/$hostname -allow_tgs_req] \
+    #	|| ![kadmin_list]} {
+    #	return
+    #}
 
     verbose "kadmin_test succeeded"
 }

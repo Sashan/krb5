@@ -13,7 +13,10 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <adb_err.h>
+#include <unistd.h>
 #include "tcl_kadm5.h"
+
+#define	MAXHOSTNAMELEN 256
 
 struct flagval {
     char *name;
@@ -2508,12 +2511,14 @@ static int tcl_kadm5_get_privs(ClientData clientData, Tcl_Interp *interp,
 
 void Tcl_kadm5_init(Tcl_Interp *interp)
 {
-    char buf[20];
+    char buf[MAXHOSTNAMELEN], localname[MAXHOSTNAMELEN] = "localhost";
 
-    Tcl_SetVar(interp, "KADM5_ADMIN_SERVICE",
-               KADM5_ADMIN_SERVICE, TCL_GLOBAL_ONLY);
-    Tcl_SetVar(interp, "KADM5_CHANGEPW_SERVICE",
-               KADM5_CHANGEPW_SERVICE, TCL_GLOBAL_ONLY);
+    (void) gethostname(localname, MAXHOSTNAMELEN);
+
+    (void) sprintf(buf, "%s@%s", KADM5_ADMIN_HOST_SERVICE, localname);
+    Tcl_SetVar(interp, "KADM5_ADMIN_SERVICE", buf, TCL_GLOBAL_ONLY);
+    (void) sprintf(buf, "%s@%s", "changepw", localname);
+    Tcl_SetVar(interp, "KADM5_CHANGEPW_SERVICE", buf, TCL_GLOBAL_ONLY);
     (void) sprintf(buf, "%d", KADM5_STRUCT_VERSION);
     Tcl_SetVar(interp, "KADM5_STRUCT_VERSION", buf, TCL_GLOBAL_ONLY);
     (void) sprintf(buf, "%d", KADM5_API_VERSION_2);

@@ -688,11 +688,12 @@ proc test45_46 {service} {
 if {$RPC} {
     test "init 45"
 
-    test45_46 kadmin/admin
+    test45_46 kadmin/changepw
 
     test "init 46"
 
-    test45_46 kadmin/changepw
+    test45_46 kadmin/history
+
 }
 
 return ""

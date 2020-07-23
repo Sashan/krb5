@@ -104,7 +104,7 @@ main(int argc, char **argv)
         exit(1);
     }
 
-    ret = kadm5_init(context, authprinc, authpwd, KADM5_ADMIN_SERVICE, NULL,
+    ret = kadm5_init(context, authprinc, authpwd, NULL, NULL,
                      KADM5_STRUCT_VERSION, KADM5_API_VERSION_4, NULL,
                      &handle);
     if (ret) {
