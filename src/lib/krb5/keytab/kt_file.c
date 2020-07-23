@@ -330,7 +330,21 @@ krb5_ktfile_get_entry(krb5_context context, krb5_keytab id,
         /* if the principal isn't the one requested, free new_entry
            and continue to the next. */
 
-        if (!krb5_principal_compare(context, principal, new_entry.principal)) {
+	/*
+	 * Solaris Kerberos: MS Interop requires that case insensitive
+	 * comparisons of service and host components are performed for key
+	 * table lookup, etc. Only called if the private environment variable
+	 * MS_INTEROP is defined.
+	 */
+	if (getenv("MS_INTEROP")) {
+	    if (!krb5_principal_compare_flags(context, principal,
+					      new_entry.principal,
+					KRB5_PRINCIPAL_COMPARE_CASEFOLD)) {
+		krb5_kt_free_entry(context, &new_entry);
+		continue;
+	    }
+	} else if (!krb5_principal_compare(context, principal,
+					   new_entry.principal)) {
             krb5_kt_free_entry(context, &new_entry);
             continue;
         }
