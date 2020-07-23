@@ -13,6 +13,7 @@ STLIBOBJS= \
 	ktremove.o	\
 	ktfns.o		\
 	kt_file.o	\
+	kt_findrealm.o	\
 	kt_memory.o	\
 	read_servi.o	\
 	kt_solaris.o
@@ -25,6 +26,7 @@ OBJS=	\
 	$(OUTPRE)ktremove.$(OBJEXT)	\
 	$(OUTPRE)ktfns.$(OBJEXT)	\
 	$(OUTPRE)kt_file.$(OBJEXT)	\
+	$(OUTPRE)kt_findrealm.$(OBJEXT)	\
 	$(OUTPRE)kt_memory.$(OBJEXT)	\
 	$(OUTPRE)read_servi.$(OBJEXT)	\
 	$(OUTPRE)kt_solaris.$(OBJEXT)
@@ -37,6 +39,7 @@ SRCS=	\
 	$(srcdir)/ktremove.c	\
 	$(srcdir)/ktfns.c	\
 	$(srcdir)/kt_file.c	\
+	$(srcdir)/kt_findrealm.c	\
 	$(srcdir)/kt_memory.c	\
 	$(srcdir)/read_servi.c	\
 	$(srcdir)/kt_solaris.c
