@@ -24,6 +24,7 @@ STLIBOBJS= \
 	gen_port.o	\
 	genaddrs.o	\
 	gen_rname.o	\
+	getuid.o	\
 	hostaddr.o	\
 	hostrealm.o	\
 	hostrealm_dns.o \
@@ -71,6 +72,7 @@ OBJS= \
 	$(OUTPRE)gen_port.$(OBJEXT)	\
 	$(OUTPRE)genaddrs.$(OBJEXT)	\
 	$(OUTPRE)gen_rname.$(OBJEXT)	\
+	$(OUTPRE)getuid.$(OBJEXT)	\
 	$(OUTPRE)hostaddr.$(OBJEXT)	\
 	$(OUTPRE)hostrealm.$(OBJEXT)	\
 	$(OUTPRE)hostrealm_dns.$(OBJEXT) \
@@ -118,6 +120,7 @@ SRCS= \
 	$(srcdir)/gen_port.c	\
 	$(srcdir)/genaddrs.c	\
 	$(srcdir)/gen_rname.c	\
+	$(srcdir)/getuid.c	\
 	$(srcdir)/hostaddr.c	\
 	$(srcdir)/hostrealm.c	\
 	$(srcdir)/hostrealm_dns.c \
