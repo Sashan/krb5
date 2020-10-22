@@ -87,7 +87,7 @@ r2.addprinc(zaphod, password('zaphod'))
 if hostname != 'localhost':
     r1.addprinc('host/localhost')
     r2.addprinc('host/localhost')
-r1.addprinc('host/' + foo)
+#r1.addprinc('host/' + foo)
 r2.addprinc('host/' + foo2)
 r1.addprinc('host/' + foobar)
 r1.extract_keytab('host/localhost', r1.keytab)
