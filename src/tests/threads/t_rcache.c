@@ -60,19 +60,71 @@ static void wait_for_tick ()
     } while (now == next);
 }
 
+krb5_error_code encrypt_authenticator(krb5_data *authenticator,
+        krb5_enc_data *authenticator_enc)
+{
+    krb5_keyblock *keyblock;
+    krb5_key key;
+    krb5_error_code ec;
+    size_t len;
+
+    ec = krb5_init_keyblock(ctx, ENCTYPE_AES256_CTS_HMAC_SHA1_96, 0, &keyblock);
+    if (ec != 0)
+        return (ec);
+
+    ec = krb5_c_make_random_key(ctx, ENCTYPE_AES256_CTS_HMAC_SHA1_96,
+            keyblock);
+    if (ec != 0) {
+        krb5_free_keyblock(ctx, keyblock);
+        return (ec);
+    }
+
+    ec = krb5_k_create_key(ctx, keyblock, &key);
+    if (ec != 0) {
+        krb5_k_free_key(ctx, key);
+        krb5_free_keyblock(ctx, keyblock);
+    }
+
+    krb5_c_encrypt_length(ctx, keyblock->enctype, authenticator->length, &len);
+    authenticator_enc->ciphertext.length = len;
+
+    /*
+     * 7 stands for keyusage: tgt-request authenticator
+     * NULL is krb5_data, which holds cipher state
+     */
+    ec = krb5_c_encrypt(ctx, keyblock, 7, NULL, authenticator,
+            authenticator_enc);
+
+    krb5_k_free_key(ctx, key);
+    krb5_free_keyblock(ctx, keyblock);
+
+    return (ec);
+}
+
 static void try_one (struct tinfo *t)
 {
-    krb5_donot_replay r;
     krb5_error_code err;
-    char buf[100], buf2[100], tag[8];
+    char buf[256], buf2[512], tag[8];
     krb5_rcache my_rcache;
+    krb5_data authenticator;
+    krb5_enc_data authenticator_enc;
 
     snprintf(buf, sizeof(buf), "host/all-in-one.mit.edu/%p@ATHENA.MIT.EDU",
              buf);
-    r.server = buf;
-    r.client = (t->my_cusec & 7) + "abcdefgh@ATHENA.MIT.EDU";
-    r.msghash = NULL;
-    r.tag = empty_data();
+
+    authenticator.data = buf;
+    authenticator.length = strlen(buf);
+    authenticator_enc.ciphertext.data = buf2;
+    authenticator_enc.ciphertext.length = sizeof(buf2);
+
+    err = encrypt_authenticator(&authenticator, &authenticator_enc);
+    if (err != 0) {
+        const char *msg = krb5_get_error_message(ctx, err);
+        fprintf(stderr, "%s: unable to encrypt authenticator: %s\n", prog, msg);
+        krb5_free_error_message(ctx, msg);
+        exit(1);
+    }
+
     if (t->now != t->my_ctime) {
         if (t->my_ctime != 0) {
             snprintf(buf2, sizeof(buf2), "%3d: %ld %5d\n", t->idx,
@@ -83,11 +135,6 @@ static void try_one (struct tinfo *t)
         t->my_cusec = 1;
     } else
         t->my_cusec++;
-    r.ctime = t->my_ctime;
-    r.cusec = t->my_cusec;
-    store_32_be(r.ctime, tag);
-    store_32_be(r.cusec, tag + 4);
-    r.tag = make_data(tag, 8);
     if (!init_once) {
         err = krb5_get_server_rcache(ctx, &piece, &my_rcache);
         if (err) {
@@ -98,13 +145,13 @@ static void try_one (struct tinfo *t)
         }
     } else
         my_rcache = rcache;
-    err = krb5_rc_store(ctx, my_rcache, &r);
+    err = k5_rc_store(ctx, my_rcache, &authenticator_enc);
     if (err) {
         com_err(prog, err, "storing in replay cache");
         exit(1);
     }
     if (!init_once)
-        krb5_rc_close(ctx, my_rcache);
+        k5_rc_close(ctx, my_rcache);
 }
 
 static void *run_a_loop (void *x)
@@ -194,7 +241,6 @@ int main (int argc, char *argv[])
         krb5_free_error_message(ctx, msg);
         return 1;
     }
-    err = krb5_rc_destroy(ctx, rcache);
     if (err) {
         const char *msg = krb5_get_error_message(ctx, err);
         fprintf(stderr, "%s: %s while destroying old replay cache\n",
@@ -250,7 +296,7 @@ int main (int argc, char *argv[])
     free(ip);
 
     if (init_once)
-        krb5_rc_close(ctx, rcache);
+        k5_rc_close(ctx, rcache);
     krb5_free_context(ctx);
     return 0;
 }
