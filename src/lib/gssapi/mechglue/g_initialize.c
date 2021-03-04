@@ -45,6 +45,8 @@
 #include <glob.h>
 #endif
 
+#include <libgen.h>
+
 #define	M_DEFAULT	"default"
 
 #include "k5-thread.h"
@@ -62,6 +64,12 @@
 #define	MECH_CONF "/etc/gss/mech"
 #endif
 #define MECH_CONF_PATTERN MECH_CONF ".d/*.conf"
+
+#if defined(__sparc) || defined(__sparc__)
+#define	PATH_64	"sparcv9"
+#else
+#define	PATH_64	"amd64"
+#endif
 
 /* Local functions */
 static void addConfigEntry(const char *oidStr, const char *oid,
@@ -1530,6 +1538,36 @@ addConfigEntry(const char *oidStr, const char *oid, const char *sharedLib,
 	else
 		snprintf(sharedPath, sizeof(sharedPath), "%s%s",
 			 MECH_LIB_PREFIX, sharedLib);
+
+	/*
+	 * Need one more finishing touch to set correct path to desired plugin
+	 * with respect to binary type (64-bit vs. 32).
+	 *
+	 * treatment is needed for 64bit binaries only.
+	 */
+	if (sizeof (intptr_t) == 8) {
+		char *path;
+		char *fname;
+
+		path = strdup(sharedPath);
+		if (path == NULL)
+			return;
+
+		fname = strdup(sharedPath);
+		if (fname == NULL) {
+			free(path);
+			return;
+		}
+
+		snprintf(sharedPath, sizeof (sharedPath), "%s/%s/%s",
+		    dirname(path),
+		    PATH_64,
+		    basename(fname));
+
+		free(path);
+		free(fname);
+	}
+
 #endif
 	/*
 	 * are we creating a new mechanism entry or
